@@ -155,12 +155,6 @@ The rooms of a zone are grouped under a single device named after the zone.
 The UI is available in English and Italian (`translations/en.json`,
 `translations/it.json`). Contributions for other languages are welcome.
 
-## Legacy YAML package
-
-A pure-YAML package (no custom component) is kept under
-[`config/`](config/) for reference. The custom integration above supersedes
-it and is the recommended, HACS-installable option.
-
 ## License
 
 MIT — see [`LICENSE`](LICENSE).
