@@ -1,24 +1,25 @@
 # Weekly Thermostat
 
-A weekly, multi-zone programmable thermostat (chronothermostat) for
+A weekly, multi-floor programmable thermostat (chronothermostat) for
 [Home Assistant](https://www.home-assistant.io/), installable via
 [HACS](https://hacs.xyz/).
 
 - **Reusable daily profiles** — time ranges → temperature, defined once
-- **Weekly schedule** — assign a profile to each weekday, per zone
+- **Weekly schedule** — assign a profile to each weekday, per floor
 - **Date-range overrides** — holidays / absence replace the weekly schedule
-- **Zones → rooms** — each room has one sensor and one or more actuators
-- **Heating and/or cooling** per room, with separate actuators
+- **Floors → areas** — mapped to Home Assistant floors and areas
+- **Heating and/or cooling** per area, with separate actuators
 - **Native `climate` entities** with `hvac_action`, presets and hysteresis
 
 ## Model
 
 ```
-Zone (e.g. Home, Office)          -> Home Assistant device
- ├─ weekly schedule                -> a profile per weekday (mon..sun)
- ├─ date-range overrides           -> replace the profile in a period
- └─ Rooms
-     └─ each room                  -> a climate entity
+Floor (e.g. Ground Floor, Office)  -> weekly-schedule group
+ ├─ (optional) linked HA floor
+ ├─ weekly schedule                 -> a profile per weekday (mon..sun)
+ ├─ date-range overrides            -> replace the profile in a period
+ └─ Areas
+     └─ each area                   -> a climate entity, placed in the HA area
          ├─ 1 temperature sensor
          ├─ heaters (0..N)
          └─ coolers (0..N)
@@ -26,24 +27,29 @@ Zone (e.g. Home, Office)          -> Home Assistant device
 Daily profile = ordered list of { time: "HH:MM", temperature: °C }
 ```
 
-Every room follows its zone's target temperature but regulates its **own**
+Every area follows its floor's target temperature but regulates its **own**
 actuators based on its **own** sensor, with hysteresis. Heating and cooling
 are never active at the same time.
 
 ## Home Assistant mapping
 
+The terminology mirrors Home Assistant on purpose:
+
 | Concept | Home Assistant |
 |---|---|
-| Room (sensor + actuators) | a `climate` entity |
-| Zone | a device grouping the rooms, providing the schedule |
+| Area (sensor + actuators) | a Home Assistant **area** → one `climate` entity |
+| Floor (weekly-schedule group) | a Home Assistant **floor** (optional link) |
 | Schedule / manual / holiday | `preset_mode`: `schedule` / `manual` / `away` |
 | Heating / cooling | `hvac_mode`: `heat` / `cool` / `off` |
 | Demand | `hvac_action`: `heating` / `cooling` / `idle` / `off` |
 
+> Note: Home Assistant "zones" are GPS presence zones — a different concept —
+> so this integration uses **floors** for the schedule grouping instead.
+
 - **`schedule`** preset: target follows the weekly program (and overrides).
 - **`manual`** preset: target is the value you set (setting a temperature
   switches to this preset automatically).
-- **`away`** preset: target is the room's `away_temperature`.
+- **`away`** preset: target is the area's `away_temperature`.
 
 ## Installation
 
@@ -69,14 +75,16 @@ Copy `custom_components/weekly_thermostat/` into your Home Assistant
    - **Global settings** — default hysteresis
    - **Daily profiles** — add/edit/remove profiles (one `HH:MM temperature`
      slot per line)
-   - **Zones & weekly schedule** — assign a profile to each weekday and add
-     date-range overrides
-   - **Rooms** — pick the temperature sensor and the heating/cooling actuators
+   - **Floors & weekly schedule** — assign a profile to each weekday, optionally
+     link a Home Assistant floor, and add date-range overrides
+   - **Areas** — pick a Home Assistant area; its temperature sensor and switches
+     are auto-suggested, then confirm the heating/cooling actuators
 3. Choose **Save & close**. Changes are applied immediately (the entry
    reloads).
 
-Order matters: create at least one **profile** before adding a **zone**, and a
-**zone** before adding **rooms**.
+Order matters: create at least one **profile** before adding a **floor**, and a
+**floor** before adding **areas**. Each area is placed in its Home Assistant
+area automatically.
 
 ### Via YAML (optional)
 
@@ -96,9 +104,10 @@ weekly_thermostat:
       - { time: "08:30", temperature: 18 }
       - { time: "22:00", temperature: 18 }
 
-  zones:
-    home:
-      name: Home
+  floors:
+    ground_floor:
+      name: Ground Floor
+      # floor: ground_floor      # optional HA floor id link
       schedule:
         mon: home_weekday
         tue: home_weekday
@@ -109,9 +118,10 @@ weekly_thermostat:
         sun: home_weekday
       overrides:
         - { start: "2026-08-01", end: "2026-08-20", profile: home_weekday }
-      rooms:
+      areas:
         living_room:
           name: Living Room
+          area: living_room      # optional HA area id link
           sensor: sensor.living_room_temperature
           heaters:
             - switch.living_room_valve
@@ -124,15 +134,17 @@ weekly_thermostat:
 | `hysteresis` | root | no (0.3) | Default hysteresis in °C |
 | `profiles` | root | yes | Named daily profiles (list of slots) |
 | `time` / `temperature` | slot | yes | Slot start (`HH:MM`) and setpoint |
-| `schedule` | zone | yes | Profile per weekday (`mon`..`sun`) |
-| `overrides` | zone | no | `{ start, end, profile }`, dates inclusive |
-| `rooms` | zone | yes | Rooms in the zone |
-| `sensor` | room | yes | Temperature sensor entity |
-| `heaters` | room | no `[]` | Actuators used for heating |
-| `coolers` | room | no `[]` | Actuators used for cooling |
-| `hysteresis` | room | no | Overrides the global hysteresis |
-| `away_temperature` | room | no (16) | Target for the `away` preset |
-| `min_temperature` / `max_temperature` | room | no | UI setpoint limits |
+| `floor` | floor | no | Linked Home Assistant floor id |
+| `schedule` | floor | yes | Profile per weekday (`mon`..`sun`) |
+| `overrides` | floor | no | `{ start, end, profile }`, dates inclusive |
+| `areas` | floor | yes | Areas on the floor |
+| `area` | area | no | Linked Home Assistant area id (entity placement) |
+| `sensor` | area | yes | Temperature sensor entity |
+| `heaters` | area | no `[]` | Actuators used for heating |
+| `coolers` | area | no `[]` | Actuators used for cooling |
+| `hysteresis` | area | no | Overrides the global hysteresis |
+| `away_temperature` | area | no (16) | Target for the `away` preset |
+| `min_temperature` / `max_temperature` | area | no | UI setpoint limits |
 
 Notes:
 
@@ -143,12 +155,11 @@ Notes:
 
 ## Entities
 
-For each room you get a `climate` entity named `<Zone> <Room>` (e.g.
-`climate.home_living_room`) with extra attributes:
+For each area you get a `climate` entity named `<Floor> <Area>` (e.g.
+`climate.ground_floor_living_room`), placed in its Home Assistant area, with
+extra attributes:
 
 - `hysteresis`, `active_profile`, `scheduled_temperature`, `heaters`, `coolers`
-
-The rooms of a zone are grouped under a single device named after the zone.
 
 ## Localization
 

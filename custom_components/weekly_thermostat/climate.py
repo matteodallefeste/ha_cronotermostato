@@ -1,7 +1,7 @@
 """Climate platform for the Weekly Thermostat integration.
 
-Each room is exposed as a ``climate`` entity. The target temperature follows
-the room's zone schedule (reusable daily profiles assigned per weekday, with
+Each area is exposed as a ``climate`` entity. The target temperature follows
+the area's floor schedule (reusable daily profiles assigned per weekday, with
 optional date-range overrides). The entity regulates its own actuators with
 hysteresis and never runs heating and cooling at the same time.
 """
@@ -41,8 +41,11 @@ from homeassistant.util import dt as dt_util
 
 from .const import (
     CONF_AWAY_TEMP,
+    CONF_AREA,
+    CONF_AREAS,
     CONF_COOLERS,
     CONF_END,
+    CONF_FLOORS,
     CONF_HEATERS,
     CONF_HYSTERESIS,
     CONF_MAX_TEMP,
@@ -51,13 +54,11 @@ from .const import (
     CONF_OVERRIDES,
     CONF_PROFILE,
     CONF_PROFILES,
-    CONF_ROOMS,
     CONF_SCHEDULE,
     CONF_SENSOR,
     CONF_START,
     CONF_TEMPERATURE,
     CONF_TIME,
-    CONF_ZONES,
     DEFAULT_AWAY_TEMP,
     DEFAULT_HYSTERESIS,
     DEFAULT_MAX_TEMP,
@@ -85,16 +86,16 @@ async def async_setup_entry(
     global_hysteresis = data.get(CONF_HYSTERESIS, DEFAULT_HYSTERESIS)
 
     entities: list[WeeklyThermostat] = []
-    for zone_id, zone in data.get(CONF_ZONES, {}).items():
-        zone_name = zone.get(CONF_NAME) or zone_id.replace("_", " ").title()
-        for room_id, room in zone.get(CONF_ROOMS, {}).items():
+    for floor_id, floor in data.get(CONF_FLOORS, {}).items():
+        floor_name = floor.get(CONF_NAME) or floor_id.replace("_", " ").title()
+        for area_id, area in floor.get(CONF_AREAS, {}).items():
             entities.append(
                 WeeklyThermostat(
-                    zone_id=zone_id,
-                    zone_name=zone_name,
-                    zone=zone,
-                    room_id=room_id,
-                    room=room,
+                    floor_id=floor_id,
+                    floor_name=floor_name,
+                    floor=floor,
+                    area_id=area_id,
+                    area=area,
                     profiles=profiles,
                     global_hysteresis=global_hysteresis,
                 )
@@ -104,7 +105,7 @@ async def async_setup_entry(
 
 
 class WeeklyThermostat(ClimateEntity, RestoreEntity):
-    """A room thermostat driven by its zone's weekly schedule."""
+    """An area thermostat driven by its floor's weekly schedule."""
 
     _attr_should_poll = False
     _attr_has_entity_name = False
@@ -116,36 +117,39 @@ class WeeklyThermostat(ClimateEntity, RestoreEntity):
     def __init__(
         self,
         *,
-        zone_id: str,
-        zone_name: str,
-        zone: dict[str, Any],
-        room_id: str,
-        room: dict[str, Any],
+        floor_id: str,
+        floor_name: str,
+        floor: dict[str, Any],
+        area_id: str,
+        area: dict[str, Any],
         profiles: dict[str, list[dict[str, Any]]],
         global_hysteresis: float,
     ) -> None:
         """Initialize the thermostat."""
-        room_name = room.get(CONF_NAME) or room_id.replace("_", " ").title()
-        self._attr_name = f"{zone_name} {room_name}"
-        self._attr_unique_id = f"{DOMAIN}_{zone_id}_{room_id}"
+        area_name = area.get(CONF_NAME) or area_id.replace("_", " ").title()
+        self._attr_name = f"{floor_name} {area_name}"
+        self._attr_unique_id = f"{DOMAIN}_{floor_id}_{area_id}"
+        # Link the entity's device to the Home Assistant area, if known.
+        ha_area_id = area.get(CONF_AREA)
         self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, zone_id)},
-            name=zone_name,
+            identifiers={(DOMAIN, self._attr_unique_id)},
+            name=self._attr_name,
             manufacturer="Weekly Thermostat",
-            model="Zone",
+            model=f"Floor: {floor_name}",
+            suggested_area=ha_area_id,
         )
 
-        self._sensor = room[CONF_SENSOR]
-        self._heaters: list[str] = list(room.get(CONF_HEATERS, []))
-        self._coolers: list[str] = list(room.get(CONF_COOLERS, []))
-        self._hysteresis = float(room.get(CONF_HYSTERESIS, global_hysteresis))
-        self._away_temp = float(room.get(CONF_AWAY_TEMP, DEFAULT_AWAY_TEMP))
-        self._attr_min_temp = float(room.get(CONF_MIN_TEMP, DEFAULT_MIN_TEMP))
-        self._attr_max_temp = float(room.get(CONF_MAX_TEMP, DEFAULT_MAX_TEMP))
+        self._sensor = area[CONF_SENSOR]
+        self._heaters: list[str] = list(area.get(CONF_HEATERS, []))
+        self._coolers: list[str] = list(area.get(CONF_COOLERS, []))
+        self._hysteresis = float(area.get(CONF_HYSTERESIS, global_hysteresis))
+        self._away_temp = float(area.get(CONF_AWAY_TEMP, DEFAULT_AWAY_TEMP))
+        self._attr_min_temp = float(area.get(CONF_MIN_TEMP, DEFAULT_MIN_TEMP))
+        self._attr_max_temp = float(area.get(CONF_MAX_TEMP, DEFAULT_MAX_TEMP))
 
-        # Zone schedule data.
-        self._schedule: dict[str, str] = zone[CONF_SCHEDULE]
-        self._overrides: list[dict[str, Any]] = zone[CONF_OVERRIDES]
+        # Floor schedule data.
+        self._schedule: dict[str, str] = floor[CONF_SCHEDULE]
+        self._overrides: list[dict[str, Any]] = floor[CONF_OVERRIDES]
         # Pre-sort every profile's slots ascending by time for fast lookup.
         self._profiles: dict[str, list[tuple[int, float]]] = {}
         for name, slots in profiles.items():

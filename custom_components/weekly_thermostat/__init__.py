@@ -1,10 +1,13 @@
 """The Weekly Thermostat integration.
 
-A weekly, multi-zone programmable thermostat (chronothermostat) configured in
-YAML. Reusable daily profiles are assigned to weekdays per zone, with optional
-date-range overrides (holidays/absence). Each room becomes a ``climate`` entity
-that regulates its own actuators (heating and/or cooling) with hysteresis,
-following the target temperature computed from its zone's schedule.
+A weekly, multi-floor programmable thermostat (chronothermostat). Reusable
+daily profiles are assigned to weekdays per floor, with optional date-range
+overrides (holidays/absence). Each area becomes a ``climate`` entity that
+regulates its own actuators (heating and/or cooling) with hysteresis,
+following the target temperature computed from its floor's schedule.
+
+Floors map to Home Assistant floors (a schedule group), and areas map to
+Home Assistant areas (the room the thermostat lives in).
 """
 
 from __future__ import annotations
@@ -18,9 +21,13 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 
 from .const import (
+    CONF_AREA,
+    CONF_AREAS,
     CONF_AWAY_TEMP,
     CONF_COOLERS,
     CONF_END,
+    CONF_FLOOR,
+    CONF_FLOORS,
     CONF_HEATERS,
     CONF_HYSTERESIS,
     CONF_MAX_TEMP,
@@ -29,13 +36,11 @@ from .const import (
     CONF_OVERRIDES,
     CONF_PROFILE,
     CONF_PROFILES,
-    CONF_ROOMS,
     CONF_SCHEDULE,
     CONF_SENSOR,
     CONF_START,
     CONF_TEMPERATURE,
     CONF_TIME,
-    CONF_ZONES,
     DEFAULT_HYSTERESIS,
     DOMAIN,
     WEEKDAYS,
@@ -58,9 +63,10 @@ OVERRIDE_SCHEMA = vol.Schema(
     }
 )
 
-ROOM_SCHEMA = vol.Schema(
+AREA_SCHEMA = vol.Schema(
     {
         vol.Optional(CONF_NAME): cv.string,
+        vol.Optional(CONF_AREA): cv.string,
         vol.Required(CONF_SENSOR): cv.entity_id,
         vol.Optional(CONF_HEATERS, default=list): cv.entity_ids,
         vol.Optional(CONF_COOLERS, default=list): cv.entity_ids,
@@ -71,12 +77,13 @@ ROOM_SCHEMA = vol.Schema(
     }
 )
 
-ZONE_SCHEMA = vol.Schema(
+FLOOR_SCHEMA = vol.Schema(
     {
         vol.Optional(CONF_NAME): cv.string,
+        vol.Optional(CONF_FLOOR): cv.string,
         vol.Required(CONF_SCHEDULE): {vol.In(WEEKDAYS): cv.string},
         vol.Optional(CONF_OVERRIDES, default=list): [OVERRIDE_SCHEMA],
-        vol.Required(CONF_ROOMS): vol.Schema({cv.slug: ROOM_SCHEMA}),
+        vol.Required(CONF_AREAS): vol.Schema({cv.string: AREA_SCHEMA}),
     }
 )
 
@@ -90,7 +97,7 @@ CONFIG_SCHEMA = vol.Schema(
                 vol.Required(CONF_PROFILES): vol.Schema(
                     {cv.slug: [PROFILE_SLOT_SCHEMA]}
                 ),
-                vol.Required(CONF_ZONES): vol.Schema({cv.slug: ZONE_SCHEMA}),
+                vol.Required(CONF_FLOORS): vol.Schema({cv.string: FLOOR_SCHEMA}),
             }
         )
     },
@@ -107,13 +114,13 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
     # Validate that every referenced profile actually exists.
     profiles = conf[CONF_PROFILES]
-    for zone_id, zone in conf[CONF_ZONES].items():
-        referenced = set(zone[CONF_SCHEDULE].values())
-        referenced.update(ov[CONF_PROFILE] for ov in zone[CONF_OVERRIDES])
+    for floor_id, floor in conf[CONF_FLOORS].items():
+        referenced = set(floor[CONF_SCHEDULE].values())
+        referenced.update(ov[CONF_PROFILE] for ov in floor[CONF_OVERRIDES])
         missing = referenced - set(profiles)
         if missing:
             raise vol.Invalid(
-                f"Zone '{zone_id}' references unknown profile(s): "
+                f"Floor '{floor_id}' references unknown profile(s): "
                 f"{', '.join(sorted(missing))}"
             )
 

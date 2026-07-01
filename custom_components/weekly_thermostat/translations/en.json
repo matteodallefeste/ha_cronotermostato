@@ -4,7 +4,7 @@
     "step": {
       "user": {
         "title": "Weekly Thermostat",
-        "description": "This creates the Weekly Thermostat. After setup, use the integration's \"Configure\" button to add daily profiles, zones and rooms."
+        "description": "This creates the Weekly Thermostat. After setup, use the integration's \"Configure\" button to add daily profiles, floors and areas."
       }
     },
     "abort": {
@@ -18,8 +18,8 @@
         "menu_options": {
           "settings": "Global settings",
           "profiles": "Daily profiles",
-          "zones": "Zones & weekly schedule",
-          "rooms": "Rooms (sensors & actuators)",
+          "floors": "Floors & weekly schedule",
+          "areas": "Areas (sensors & actuators)",
           "finish": "Save & close"
         }
       },
@@ -45,18 +45,19 @@
           "delete": "Delete this profile"
         }
       },
-      "zones": {
-        "title": "Zones",
-        "description": "Pick a zone to edit, or add a new one.",
+      "floors": {
+        "title": "Floors",
+        "description": "Pick a floor to edit, or add a new one.",
         "data": {
-          "zone": "Zone"
+          "floor": "Floor"
         }
       },
-      "zone_edit": {
-        "title": "Edit zone",
-        "description": "Assign a daily profile to each weekday. Overrides replace the schedule for a date range: one \"YYYY-MM-DD YYYY-MM-DD profile\" per line.",
+      "floor_edit": {
+        "title": "Edit floor",
+        "description": "Assign a daily profile to each weekday. Optionally link a Home Assistant floor. Overrides replace the schedule for a date range: one \"YYYY-MM-DD YYYY-MM-DD profile\" per line.",
         "data": {
-          "name": "Zone name",
+          "name": "Floor name",
+          "floor": "Home Assistant floor (optional)",
           "mon": "Monday",
           "tue": "Tuesday",
           "wed": "Wednesday",
@@ -65,27 +66,34 @@
           "sat": "Saturday",
           "sun": "Sunday",
           "overrides": "Overrides (holidays / absence)",
-          "delete": "Delete this zone"
+          "delete": "Delete this floor"
         }
       },
-      "rooms": {
-        "title": "Rooms",
-        "description": "Pick the zone whose rooms you want to manage.",
+      "areas": {
+        "title": "Areas",
+        "description": "Pick the floor whose areas you want to manage.",
         "data": {
-          "zone": "Zone"
+          "floor": "Floor"
         }
       },
-      "room_select": {
-        "title": "Rooms",
-        "description": "Pick a room to edit, or add a new one.",
+      "area_select": {
+        "title": "Areas",
+        "description": "Pick an area to edit, or add a new one.",
         "data": {
-          "room": "Room"
+          "area": "Area"
         }
       },
-      "room_edit": {
-        "title": "Edit room",
+      "area_pick": {
+        "title": "Add area",
+        "description": "Pick the Home Assistant area to control. Its temperature sensor and switches will be suggested next.",
         "data": {
-          "name": "Room name",
+          "area": "Home Assistant area"
+        }
+      },
+      "area_edit": {
+        "title": "Edit area — {area}",
+        "data": {
+          "name": "Area name",
           "sensor": "Temperature sensor",
           "heaters": "Heating actuators",
           "coolers": "Cooling actuators",
@@ -93,15 +101,16 @@
           "away_temperature": "Away temperature (°C)",
           "min_temperature": "Minimum temperature (°C)",
           "max_temperature": "Maximum temperature (°C)",
-          "delete": "Delete this room"
+          "delete": "Delete this area"
         }
       }
     },
     "error": {
       "invalid_slots": "Invalid slots. Use \"HH:MM temperature\" on each line; the first slot must start at 00:00.",
       "invalid_overrides": "Invalid overrides. Use \"YYYY-MM-DD YYYY-MM-DD profile\" on each line, referencing an existing profile.",
-      "no_profiles": "Create at least one daily profile before adding a zone.",
-      "no_zones": "Create at least one zone before adding rooms."
+      "no_profiles": "Create at least one daily profile before adding a floor.",
+      "no_floors": "Create at least one floor before adding areas.",
+      "area_exists": "That area is already configured on this floor."
     }
   },
   "entity": {

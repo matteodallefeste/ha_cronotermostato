@@ -4,7 +4,7 @@
     "step": {
       "user": {
         "title": "Termostato settimanale",
-        "description": "Crea il Termostato settimanale. Dopo la configurazione, usa il pulsante \"Configura\" dell'integrazione per aggiungere profili giornalieri, zone e stanze."
+        "description": "Crea il Termostato settimanale. Dopo la configurazione, usa il pulsante \"Configura\" dell'integrazione per aggiungere profili giornalieri, floor e aree."
       }
     },
     "abort": {
@@ -18,8 +18,8 @@
         "menu_options": {
           "settings": "Impostazioni generali",
           "profiles": "Profili giornalieri",
-          "zones": "Zone e programma settimanale",
-          "rooms": "Stanze (sensori e attuatori)",
+          "floors": "Floor e programma settimanale",
+          "areas": "Aree (sensori e attuatori)",
           "finish": "Salva e chiudi"
         }
       },
@@ -45,18 +45,19 @@
           "delete": "Elimina questo profilo"
         }
       },
-      "zones": {
-        "title": "Zone",
-        "description": "Scegli una zona da modificare oppure aggiungine una nuova.",
+      "floors": {
+        "title": "Floor",
+        "description": "Scegli un floor da modificare oppure aggiungine uno nuovo.",
         "data": {
-          "zone": "Zona"
+          "floor": "Floor"
         }
       },
-      "zone_edit": {
-        "title": "Modifica zona",
-        "description": "Assegna un profilo giornaliero a ogni giorno. Gli override sostituiscono il programma in un intervallo di date: una riga \"AAAA-MM-GG AAAA-MM-GG profilo\".",
+      "floor_edit": {
+        "title": "Modifica floor",
+        "description": "Assegna un profilo giornaliero a ogni giorno. Puoi collegare opzionalmente un floor di Home Assistant. Gli override sostituiscono il programma in un intervallo di date: una riga \"AAAA-MM-GG AAAA-MM-GG profilo\".",
         "data": {
-          "name": "Nome zona",
+          "name": "Nome floor",
+          "floor": "Floor di Home Assistant (opzionale)",
           "mon": "Lunedì",
           "tue": "Martedì",
           "wed": "Mercoledì",
@@ -65,27 +66,34 @@
           "sat": "Sabato",
           "sun": "Domenica",
           "overrides": "Override (ferie / assenza)",
-          "delete": "Elimina questa zona"
+          "delete": "Elimina questo floor"
         }
       },
-      "rooms": {
-        "title": "Stanze",
-        "description": "Scegli la zona di cui gestire le stanze.",
+      "areas": {
+        "title": "Aree",
+        "description": "Scegli il floor di cui gestire le aree.",
         "data": {
-          "zone": "Zona"
+          "floor": "Floor"
         }
       },
-      "room_select": {
-        "title": "Stanze",
-        "description": "Scegli una stanza da modificare oppure aggiungine una nuova.",
+      "area_select": {
+        "title": "Aree",
+        "description": "Scegli un'area da modificare oppure aggiungine una nuova.",
         "data": {
-          "room": "Stanza"
+          "area": "Area"
         }
       },
-      "room_edit": {
-        "title": "Modifica stanza",
+      "area_pick": {
+        "title": "Aggiungi area",
+        "description": "Scegli l'area di Home Assistant da controllare. Nel passo successivo verranno suggeriti il sensore di temperatura e gli interruttori.",
         "data": {
-          "name": "Nome stanza",
+          "area": "Area di Home Assistant"
+        }
+      },
+      "area_edit": {
+        "title": "Modifica area — {area}",
+        "data": {
+          "name": "Nome area",
           "sensor": "Sensore di temperatura",
           "heaters": "Attuatori riscaldamento",
           "coolers": "Attuatori raffrescamento",
@@ -93,15 +101,16 @@
           "away_temperature": "Temperatura assenza (°C)",
           "min_temperature": "Temperatura minima (°C)",
           "max_temperature": "Temperatura massima (°C)",
-          "delete": "Elimina questa stanza"
+          "delete": "Elimina questa area"
         }
       }
     },
     "error": {
       "invalid_slots": "Fasce non valide. Usa \"HH:MM temperatura\" su ogni riga; la prima fascia deve iniziare alle 00:00.",
       "invalid_overrides": "Override non validi. Usa \"AAAA-MM-GG AAAA-MM-GG profilo\" su ogni riga, riferendoti a un profilo esistente.",
-      "no_profiles": "Crea almeno un profilo giornaliero prima di aggiungere una zona.",
-      "no_zones": "Crea almeno una zona prima di aggiungere le stanze."
+      "no_profiles": "Crea almeno un profilo giornaliero prima di aggiungere un floor.",
+      "no_floors": "Crea almeno un floor prima di aggiungere le aree.",
+      "area_exists": "Quest'area è già configurata su questo floor."
     }
   },
   "entity": {

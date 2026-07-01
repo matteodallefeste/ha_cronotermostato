@@ -1,9 +1,13 @@
 # Example configuration for the Weekly Thermostat custom integration.
 # Copy the `weekly_thermostat:` block into your Home Assistant
 # configuration.yaml (or a package) and adapt the entity ids.
+#
+# Concepts map to Home Assistant:
+#   - a "floor" is a weekly-schedule group (optionally linked to an HA floor)
+#   - an "area" is a thermostat living in an HA area (sensor + actuators)
 
 weekly_thermostat:
-  # Global default hysteresis in °C (can be overridden per room).
+  # Global default hysteresis in °C (can be overridden per area).
   hysteresis: 0.3
 
   # Reusable daily profiles: a list of { time, temperature } slots.
@@ -27,9 +31,11 @@ weekly_thermostat:
     away:
       - { time: "00:00", temperature: 16 }
 
-  zones:
-    home:
-      name: Home
+  floors:
+    ground_floor:
+      name: Ground Floor
+      # Optional: link to a Home Assistant floor id.
+      # floor: ground_floor
       # Assign a profile to each weekday (mon..sun).
       schedule:
         mon: home_weekday
@@ -42,20 +48,23 @@ weekly_thermostat:
       # Date-range overrides that replace the weekly schedule (inclusive).
       overrides:
         - { start: "2026-08-01", end: "2026-08-20", profile: away }
-      rooms:
+      areas:
         living_room:
           name: Living Room
+          # Optional: link to a Home Assistant area id (places the entity there).
+          area: living_room
           sensor: sensor.living_room_temperature
           heaters:
             - switch.living_room_valve
         bedroom:
           name: Bedroom
+          area: bedroom
           sensor: sensor.bedroom_temperature
           heaters:
             - switch.bedroom_valve
           hysteresis: 0.2
 
-    office:
+    office_floor:
       name: Office
       schedule:
         mon: office_weekday
@@ -67,9 +76,10 @@ weekly_thermostat:
         sun: away
       overrides:
         - { start: "2026-12-24", end: "2027-01-06", profile: away }
-      rooms:
+      areas:
         open_space:
           name: Open Space
+          area: open_space
           sensor: sensor.open_space_temperature
           # Separate actuators for heating and cooling.
           heaters:
