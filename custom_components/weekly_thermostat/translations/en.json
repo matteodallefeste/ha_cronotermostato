@@ -1,0 +1,18 @@
+{
+  "title": "Weekly Thermostat",
+  "entity": {
+    "climate": {
+      "weekly_thermostat": {
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "schedule": "Schedule",
+              "manual": "Manual",
+              "away": "Away"
+            }
+          }
+        }
+      }
+    }
+  }
+}

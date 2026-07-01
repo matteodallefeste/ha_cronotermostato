@@ -1,174 +1,146 @@
-# Cronotermostato settimanale per Home Assistant
+# Weekly Thermostat
 
-Package nativo (no custom component) per un cronotermostato multi-zona con:
+A weekly, multi-zone programmable thermostat (chronothermostat) for
+[Home Assistant](https://www.home-assistant.io/), installable via
+[HACS](https://hacs.xyz/).
 
-- **Profili giornalieri riutilizzabili** (fasce orarie → temperatura)
-- **Programmazione settimanale** (un profilo per ogni giorno, per ogni zona)
-- **Override a periodo** (ferie/festività/assenza) che sostituiscono il profilo
-- **Zone → stanze → 1 sensore + N attuatori** con controllo a isteresi
-- **Riscaldamento o raffrescamento** selezionabile per zona
-- **Isteresi configurabile** per zona
-- **Modalità runtime** per zona: `auto` / `manuale` / `vacanza` / `off`
+- **Reusable daily profiles** — time ranges → temperature, defined once
+- **Weekly schedule** — assign a profile to each weekday, per zone
+- **Date-range overrides** — holidays / absence replace the weekly schedule
+- **Zones → rooms** — each room has one sensor and one or more actuators
+- **Heating and/or cooling** per room, with separate actuators
+- **Native `climate` entities** with `hvac_action`, presets and hysteresis
 
-## Modello
+## Model
 
 ```
-Zona (es. Casa, Ufficio)
- ├─ programma settimanale  -> assegna un PROFILO a ogni giorno (Lun..Dom)
- ├─ override di periodo     -> sostituisce il profilo in un intervallo di date
- └─ Stanze
-     ├─ 1 sensore di temperatura
-     └─ 1..N attuatori (relè / valvole)
+Zone (e.g. Home, Office)          -> Home Assistant device
+ ├─ weekly schedule                -> a profile per weekday (mon..sun)
+ ├─ date-range overrides           -> replace the profile in a period
+ └─ Rooms
+     └─ each room                  -> a climate entity
+         ├─ 1 temperature sensor
+         ├─ heaters (0..N)
+         └─ coolers (0..N)
 
-Profilo giornaliero = lista di fasce { "start": "HH:MM", "temp": °C }
+Daily profile = ordered list of { time: "HH:MM", temperature: °C }
 ```
 
-Tutte le stanze di una zona seguono lo **stesso target** (calcolato dal
-profilo attivo della zona), ma ognuna regola **i propri attuatori** in base
-al **proprio sensore**.
+Every room follows its zone's target temperature but regulates its **own**
+actuators based on its **own** sensor, with hysteresis. Heating and cooling
+are never active at the same time.
 
-## Installazione
+## Home Assistant mapping
 
-1. Copia i file nella tua cartella di configurazione HA:
-   - `config/custom_templates/cronotermostato.jinja` → `<config>/custom_templates/`
-   - `config/packages/cronotermostato.yaml` → `<config>/packages/`
-2. In `configuration.yaml` abilita i package (se non già fatto):
-   ```yaml
-   homeassistant:
-     packages: !include_dir_named packages
-   ```
-3. Riavvia Home Assistant (la prima volta serve per i custom templates).
-
-## Configurare i profili, la settimana e gli override
-
-Tutto in **`custom_templates/cronotermostato.jinja`**, blocco `config()`:
-
-- `profiles`: definisci i profili. La prima fascia deve essere `00:00`;
-  ogni fascia vale fino all'inizio della successiva.
-- `zones[...].weekly`: assegna un profilo a ogni giorno (`0`=Lun … `6`=Dom).
-- `zones[...].overrides`: periodi `{"start","end","profile"}` (date incluse)
-  che sostituiscono il profilo settimanale.
-
-Dopo ogni modifica al `.jinja`:
-**Strumenti sviluppatori → YAML → "Ricarica Custom Jinja Templates"**
-(oppure riavvia). Le modifiche al package YAML: **Ricarica template / automazioni**.
-
-### Esempio "Casa" (già incluso, Lun–Ven)
-
-| Orario | Temp |
+| Concept | Home Assistant |
 |---|---|
-| 00:00–06:30 | 18 |
-| 06:30–08:30 | 21 |
-| 08:30–12:00 | 18 |
-| 12:00–16:00 | 21 |
-| 16:00–22:00 | 20 |
-| 22:00–24:00 | 18 |
+| Room (sensor + actuators) | a `climate` entity |
+| Zone | a device grouping the rooms, providing the schedule |
+| Schedule / manual / holiday | `preset_mode`: `schedule` / `manual` / `away` |
+| Heating / cooling | `hvac_mode`: `heat` / `cool` / `off` |
+| Demand | `hvac_action`: `heating` / `cooling` / `idle` / `off` |
 
-### Esempio "Ufficio" (già incluso, Lun–Ven)
+- **`schedule`** preset: target follows the weekly program (and overrides).
+- **`manual`** preset: target is the value you set (setting a temperature
+  switches to this preset automatically).
+- **`away`** preset: target is the room's `away_temperature`.
 
-06:00–17:30 → 22 °C, fuori orario → 16 °C, weekend → profilo `assente` (16 °C).
+## Installation
 
-## Aggiungere una ZONA
+### HACS (recommended)
 
-1. In `cronotermostato.jinja` aggiungi una voce in `zones` (con `weekly` e `overrides`).
-2. In `cronotermostato.yaml` duplica, cambiando il suffisso zona:
-   - gli `input_number` `crono_<zona>_manuale/vacanza/antigelo`
-   - l'`input_select` `crono_<zona>_mode`
-   - i 3 sensori template `Crono <Zona> profilo/target programma/target effettivo`
+1. HACS → Integrations → ⋮ → *Custom repositories*.
+2. Add `https://github.com/matteodallefeste/ha_cronotermostato` as an
+   **Integration**.
+3. Install **Weekly Thermostat** and restart Home Assistant.
 
-## Aggiungere una STANZA
+### Manual
 
-Ogni stanza ha **due** parti:
+Copy `custom_components/weekly_thermostat/` into your Home Assistant
+`config/custom_components/` folder and restart.
 
-1. Un `binary_sensor.crono_<stanza>_richiesta` nel blocco `template:` della
-   zona (aggiungi il sensore della stanza ai `trigger` e duplica un elemento
-   `binary_sensor` cambiando `name`/`unique_id` e il sensore stanza).
-2. Un'automazione di attuazione (es. "Crono Casa / Soggiorno - attuatori")
-   dove imposti:
-   - `id` / `alias`
-   - `actuators_heat` → attuatori usati in riscaldamento
-   - `actuators_cool` → attuatori usati in raffrescamento (`[]` = come heat)
-   - il `binary_sensor` e l'`input_select ..._hvac` della zona
+## Configuration
 
-## Entità create (per zona, es. `casa`)
-
-| Entità | Descrizione |
-|---|---|
-| `sensor.crono_casa_profilo_attivo` | nome profilo attivo ora |
-| `sensor.crono_casa_target_programma` | target da programma |
-| `sensor.crono_casa_target_effettivo` | target reale (considera la modalità) |
-| `input_select.crono_casa_mode` | auto / manuale / vacanza / off |
-| `input_number.crono_casa_manuale` | setpoint modalità manuale |
-| `input_number.crono_casa_vacanza` | setpoint modalità vacanza |
-| `input_number.crono_casa_antigelo` | setpoint modalità off (antigelo) |
-| `input_number.crono_casa_isteresi` | isteresi della zona (°C) |
-| `input_select.crono_casa_hvac` | riscaldamento / raffrescamento |
-
-Per ogni **stanza** viene creato anche un binary_sensor "richiesta"
-(es. `binary_sensor.crono_casa_soggiorno_richiesta`), vedi sotto.
-
-Globale: `input_boolean.cronotermostato_master` (on/off generale).
-
-## Stati pubblicati (per integrazione con altre automazioni)
-
-Il cuore della logica è esposto come `binary_sensor.crono_<stanza>_richiesta`:
-
-- `on` = la stanza sta chiedendo caldo/freddo; `off` = soddisfatta / disattiva
-- attributi: `modalita` (riscaldamento/raffrescamento), `temperatura`, `target`
-
-È la **fonte di verità**: qualsiasi automazione, dashboard o entità esterna
-può leggerlo/intercettarlo. Le automazioni degli attuatori si limitano a
-rispecchiarlo. Utile per: comandare una caldaia/pompa comune (accendila se
-almeno un `..._richiesta` è `on`), logiche di pre/post-ventilazione,
-notifiche, o integrazioni con altri sistemi.
-
-Esempio — accendi la caldaia se **almeno una** stanza chiede caldo:
+The integration is configured in YAML (see
+[`examples/configuration.yaml`](examples/configuration.yaml) for a full
+example). Add a `weekly_thermostat:` block to your `configuration.yaml`:
 
 ```yaml
-binary_sensor.crono_casa_soggiorno_richiesta == 'on'
-  or binary_sensor.crono_casa_camera_richiesta == 'on'
+weekly_thermostat:
+  hysteresis: 0.3            # global default (°C), optional
+
+  profiles:
+    home_weekday:
+      - { time: "00:00", temperature: 18 }
+      - { time: "06:30", temperature: 21 }
+      - { time: "08:30", temperature: 18 }
+      - { time: "22:00", temperature: 18 }
+
+  zones:
+    home:
+      name: Home
+      schedule:
+        mon: home_weekday
+        tue: home_weekday
+        wed: home_weekday
+        thu: home_weekday
+        fri: home_weekday
+        sat: home_weekday
+        sun: home_weekday
+      overrides:
+        - { start: "2026-08-01", end: "2026-08-20", profile: home_weekday }
+      rooms:
+        living_room:
+          name: Living Room
+          sensor: sensor.living_room_temperature
+          heaters:
+            - switch.living_room_valve
 ```
 
-## Riscaldamento e raffrescamento
+### Options
 
-Ogni zona ha `input_select.crono_<zona>_hvac` con `riscaldamento` o
-`raffrescamento`. La temperatura del profilo è il **setpoint** in entrambi i
-casi; cambia solo il verso del controllo:
+| Key | Level | Required | Description |
+|---|---|---|---|
+| `hysteresis` | root | no (0.3) | Default hysteresis in °C |
+| `profiles` | root | yes | Named daily profiles (list of slots) |
+| `time` / `temperature` | slot | yes | Slot start (`HH:MM`) and setpoint |
+| `schedule` | zone | yes | Profile per weekday (`mon`..`sun`) |
+| `overrides` | zone | no | `{ start, end, profile }`, dates inclusive |
+| `rooms` | zone | yes | Rooms in the zone |
+| `sensor` | room | yes | Temperature sensor entity |
+| `heaters` | room | no `[]` | Actuators used for heating |
+| `coolers` | room | no `[]` | Actuators used for cooling |
+| `hysteresis` | room | no | Overrides the global hysteresis |
+| `away_temperature` | room | no (16) | Target for the `away` preset |
+| `min_temperature` / `max_temperature` | room | no | UI setpoint limits |
 
-| Modalità | Attuatore ON | Attuatore OFF |
-|---|---|---|
-| riscaldamento | `temp < target − isteresi` | `temp > target + isteresi` |
-| raffrescamento | `temp > target + isteresi` | `temp < target − isteresi` |
+Notes:
 
-In estate crea profili con i setpoint di raffreddamento desiderati (o riusa
-gli stessi) e assegnali nella settimana. In `raffrescamento`, la modalità
-`off` spegne del tutto gli attuatori; in `riscaldamento`, `off` usa il
-setpoint **antigelo** per la protezione dal gelo.
+- The first slot of every profile must start at `00:00`.
+- `heaters` enables the `heat` mode; `coolers` enables the `cool` mode.
+- In `cool` mode the profile temperature is the cooling setpoint (the
+  hysteresis logic is inverted automatically).
 
-**Attuatori separati caldo/freddo**: ogni stanza definisce `actuators_heat` e
-`actuators_cool`. Se `actuators_cool` è `[]`, si riusano gli stessi del caldo.
-Il sistema non attivo viene sempre spento, quindi caldo e freddo non sono mai
-accesi contemporaneamente.
+## Entities
 
-## Note / limiti
+For each room you get a `climate` entity named `<Zone> <Room>` (e.g.
+`climate.home_living_room`) with extra attributes:
 
-- Il `binary_sensor.crono_<stanza>_richiesta` viene ricalcolato ad ogni
-  variazione di sensore/target/modalità e comunque ogni 2 minuti
-  (`time_pattern`): robusto ai riavvii. Gli attuatori seguono i suoi cambi
-  di stato.
-- L'isteresi è simmetrica e per zona: `input_number.crono_<zona>_isteresi`.
-- Sostituisci gli `entity_id` di esempio (`sensor.temperatura_*`,
-  `switch.rele_*`) con quelli reali del tuo impianto.
+- `hysteresis`, `active_profile`, `scheduled_temperature`, `heaters`, `coolers`
 
-## Pubblicazione / installazione da parte di altri utenti
+The rooms of a zone are grouped under a single device named after the zone.
 
-Il progetto è un **package YAML** (non un'integrazione HACS): si installa
-copiando i file. Per distribuirlo:
+## Localization
 
-1. Pubblica il repo su GitHub.
-2. Gli utenti scaricano lo ZIP (o `git clone`) e copiano:
-   - `config/custom_templates/cronotermostato.jinja` → `<config>/custom_templates/`
-   - `config/packages/cronotermostato.yaml` → `<config>/packages/`
-3. Abilitano i package in `configuration.yaml` (vedi sopra) e riavviano.
+The UI is available in English and Italian (`translations/en.json`,
+`translations/it.json`). Contributions for other languages are welcome.
 
-Licenza: MIT (vedi `LICENSE`).
+## Legacy YAML package
+
+A pure-YAML package (no custom component) is kept under
+[`config/`](config/) for reference. The custom integration above supersedes
+it and is the recommended, HACS-installable option.
+
+## License
+
+MIT — see [`LICENSE`](LICENSE).

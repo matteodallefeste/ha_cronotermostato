@@ -1,0 +1,12 @@
+{
+  "domain": "weekly_thermostat",
+  "name": "Weekly Thermostat",
+  "codeowners": ["@matteodallefeste"],
+  "config_flow": false,
+  "documentation": "https://github.com/matteodallefeste/ha_cronotermostato",
+  "integration_type": "hub",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/matteodallefeste/ha_cronotermostato/issues",
+  "requirements": [],
+  "version": "0.1.0"
+}

@@ -5,6 +5,10 @@ secrets.yaml
 home-assistant_v2.db*
 .HA_VERSION
 
+# Python
+__pycache__/
+*.py[cod]
+
 # OS / editor
 .DS_Store
 Thumbs.db

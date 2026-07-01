@@ -1,0 +1,79 @@
+# Example configuration for the Weekly Thermostat custom integration.
+# Copy the `weekly_thermostat:` block into your Home Assistant
+# configuration.yaml (or a package) and adapt the entity ids.
+
+weekly_thermostat:
+  # Global default hysteresis in °C (can be overridden per room).
+  hysteresis: 0.3
+
+  # Reusable daily profiles: a list of { time, temperature } slots.
+  # The first slot must start at "00:00"; a slot stays active until the next.
+  profiles:
+    home_weekday:
+      - { time: "00:00", temperature: 18 }
+      - { time: "06:30", temperature: 21 }
+      - { time: "08:30", temperature: 18 }
+      - { time: "12:00", temperature: 21 }
+      - { time: "16:00", temperature: 20 }
+      - { time: "22:00", temperature: 18 }
+    home_weekend:
+      - { time: "00:00", temperature: 19 }
+      - { time: "08:00", temperature: 21 }
+      - { time: "23:00", temperature: 18 }
+    office_weekday:
+      - { time: "00:00", temperature: 16 }
+      - { time: "06:00", temperature: 22 }
+      - { time: "17:30", temperature: 16 }
+    away:
+      - { time: "00:00", temperature: 16 }
+
+  zones:
+    home:
+      name: Home
+      # Assign a profile to each weekday (mon..sun).
+      schedule:
+        mon: home_weekday
+        tue: home_weekday
+        wed: home_weekday
+        thu: home_weekday
+        fri: home_weekday
+        sat: home_weekend
+        sun: home_weekend
+      # Date-range overrides that replace the weekly schedule (inclusive).
+      overrides:
+        - { start: "2026-08-01", end: "2026-08-20", profile: away }
+      rooms:
+        living_room:
+          name: Living Room
+          sensor: sensor.living_room_temperature
+          heaters:
+            - switch.living_room_valve
+        bedroom:
+          name: Bedroom
+          sensor: sensor.bedroom_temperature
+          heaters:
+            - switch.bedroom_valve
+          hysteresis: 0.2
+
+    office:
+      name: Office
+      schedule:
+        mon: office_weekday
+        tue: office_weekday
+        wed: office_weekday
+        thu: office_weekday
+        fri: office_weekday
+        sat: away
+        sun: away
+      overrides:
+        - { start: "2026-12-24", end: "2027-01-06", profile: away }
+      rooms:
+        open_space:
+          name: Open Space
+          sensor: sensor.open_space_temperature
+          # Separate actuators for heating and cooling.
+          heaters:
+            - switch.open_space_radiator_1
+            - switch.open_space_radiator_2
+          coolers:
+            - switch.open_space_ac
