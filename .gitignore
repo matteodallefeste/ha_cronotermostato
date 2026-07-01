@@ -1,0 +1,13 @@
+# Home Assistant runtime / secrets (non devono finire nel repo pubblico)
+secrets.yaml
+*.log
+.storage/
+home-assistant_v2.db*
+.HA_VERSION
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp

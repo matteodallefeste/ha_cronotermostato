@@ -1,0 +1,359 @@
+# =====================================================================
+# CRONOTERMOSTATO SETTIMANALE - PACKAGE
+# =====================================================================
+# Va in:  <config>/packages/cronotermostato.yaml
+# Richiede in configuration.yaml:
+#   homeassistant:
+#     packages: !include_dir_named packages
+#
+# I profili / la settimana / gli override si configurano nel file:
+#   <config>/custom_templates/cronotermostato.jinja
+#
+# Qui si configurano solo:
+#   - gli helper di runtime (modalita', isteresi, temperature manuali)
+#   - i sensori target per zona
+#   - le automazioni di controllo (una per STANZA: sensore + attuatori)
+# =====================================================================
+
+# ---------------------------------------------------------------------
+# HELPER GLOBALI
+# ---------------------------------------------------------------------
+input_boolean:
+  cronotermostato_master:
+    name: Cronotermostato attivo
+    icon: mdi:thermostat
+
+# ---------------------------------------------------------------------
+# HELPER PER ZONA  (duplica il blocco cambiando il suffisso zona)
+# Ogni zona ha la propria isteresi (configurabile).
+# ---------------------------------------------------------------------
+input_number:
+  crono_casa_isteresi:
+    name: Casa - isteresi (°C)
+    min: 0.1
+    max: 3
+    step: 0.1
+    initial: 0.3
+    unit_of_measurement: "°C"
+    icon: mdi:arrow-expand-vertical
+  crono_casa_manuale:
+    name: Casa - temperatura manuale
+    min: 5
+    max: 30
+    step: 0.5
+    initial: 20
+    unit_of_measurement: "°C"
+  crono_casa_vacanza:
+    name: Casa - temperatura vacanza
+    min: 5
+    max: 30
+    step: 0.5
+    initial: 16
+    unit_of_measurement: "°C"
+  crono_casa_antigelo:
+    name: Casa - antigelo (off)
+    min: 3
+    max: 15
+    step: 0.5
+    initial: 7
+    unit_of_measurement: "°C"
+
+  crono_ufficio_isteresi:
+    name: Ufficio - isteresi (°C)
+    min: 0.1
+    max: 3
+    step: 0.1
+    initial: 0.3
+    unit_of_measurement: "°C"
+    icon: mdi:arrow-expand-vertical
+  crono_ufficio_manuale:
+    name: Ufficio - temperatura manuale
+    min: 5
+    max: 30
+    step: 0.5
+    initial: 20
+    unit_of_measurement: "°C"
+  crono_ufficio_vacanza:
+    name: Ufficio - temperatura vacanza
+    min: 5
+    max: 30
+    step: 0.5
+    initial: 16
+    unit_of_measurement: "°C"
+  crono_ufficio_antigelo:
+    name: Ufficio - antigelo (off)
+    min: 3
+    max: 15
+    step: 0.5
+    initial: 7
+    unit_of_measurement: "°C"
+
+input_select:
+  crono_casa_mode:
+    name: Casa - modalita'
+    options:
+      - auto
+      - manuale
+      - vacanza
+      - off
+    initial: auto
+    icon: mdi:tune-variant
+  crono_casa_hvac:
+    name: Casa - riscaldamento/raffrescamento
+    options:
+      - riscaldamento
+      - raffrescamento
+    initial: riscaldamento
+    icon: mdi:sun-snowflake-variant
+  crono_ufficio_hvac:
+    name: Ufficio - riscaldamento/raffrescamento
+    options:
+      - riscaldamento
+      - raffrescamento
+    initial: riscaldamento
+    icon: mdi:sun-snowflake-variant
+  crono_ufficio_mode:
+    name: Ufficio - modalita'
+    options:
+      - auto
+      - manuale
+      - vacanza
+      - off
+    initial: auto
+    icon: mdi:tune-variant
+
+# ---------------------------------------------------------------------
+# SENSORI TEMPLATE  (profilo attivo + target programma + target effettivo)
+# ---------------------------------------------------------------------
+template:
+  - sensor:
+      # ---- ZONA CASA ----
+      - name: "Crono Casa profilo attivo"
+        unique_id: crono_casa_profilo
+        icon: mdi:calendar-clock
+        state: >
+          {% from 'cronotermostato.jinja' import active_profile %}
+          {{ active_profile('casa') | trim }}
+
+      - name: "Crono Casa target programma"
+        unique_id: crono_casa_target_prog
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state: >
+          {% from 'cronotermostato.jinja' import scheduled_target %}
+          {{ scheduled_target('casa') | trim }}
+
+      - name: "Crono Casa target effettivo"
+        unique_id: crono_casa_target_eff
+        unit_of_measurement: "°C"
+        device_class: temperature
+        icon: mdi:thermometer-check
+        state: >
+          {% set mode = states('input_select.crono_casa_mode') %}
+          {% if mode == 'off' %}
+            {{ states('input_number.crono_casa_antigelo') }}
+          {% elif mode == 'manuale' %}
+            {{ states('input_number.crono_casa_manuale') }}
+          {% elif mode == 'vacanza' %}
+            {{ states('input_number.crono_casa_vacanza') }}
+          {% else %}
+            {{ states('sensor.crono_casa_target_programma') }}
+          {% endif %}
+
+      # ---- ZONA UFFICIO ----
+      - name: "Crono Ufficio profilo attivo"
+        unique_id: crono_ufficio_profilo
+        icon: mdi:calendar-clock
+        state: >
+          {% from 'cronotermostato.jinja' import active_profile %}
+          {{ active_profile('ufficio') | trim }}
+
+      - name: "Crono Ufficio target programma"
+        unique_id: crono_ufficio_target_prog
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state: >
+          {% from 'cronotermostato.jinja' import scheduled_target %}
+          {{ scheduled_target('ufficio') | trim }}
+
+      - name: "Crono Ufficio target effettivo"
+        unique_id: crono_ufficio_target_eff
+        unit_of_measurement: "°C"
+        device_class: temperature
+        icon: mdi:thermometer-check
+        state: >
+          {% set mode = states('input_select.crono_ufficio_mode') %}
+          {% if mode == 'off' %}
+            {{ states('input_number.crono_ufficio_antigelo') }}
+          {% elif mode == 'manuale' %}
+            {{ states('input_number.crono_ufficio_manuale') }}
+          {% elif mode == 'vacanza' %}
+            {{ states('input_number.crono_ufficio_vacanza') }}
+          {% else %}
+            {{ states('sensor.crono_ufficio_target_programma') }}
+          {% endif %}
+
+# ---------------------------------------------------------------------
+# AUTOMAZIONI DI CONTROLLO  -  UNA PER STANZA
+# ---------------------------------------------------------------------
+# Duplica un blocco per ogni stanza. Cambia solo le 4 righe marcate <--:
+#   - id / alias
+#   - room_sensor : il sensore di temperatura della stanza
+#   - actuators   : uno o piu' attuatori (switch/valvole) della stanza
+#   - le entita' della zona: crono_<zona>_target_effettivo / _isteresi / _hvac / _mode
+#
+# LOGICA (identica per tutte le stanze):
+#   - master OFF, dati non validi, oppure (mode=off in RAFFRESCAMENTO) -> spegni
+#   - RISCALDAMENTO : ON se temp < target-isteresi ; OFF se temp > target+isteresi
+#   - RAFFRESCAMENTO: ON se temp > target+isteresi ; OFF se temp < target-isteresi
+#   (in RISCALDAMENTO mode=off usa il setpoint antigelo, quindi resta protetto)
+# ---------------------------------------------------------------------
+automation:
+  # ===== ZONA CASA - Stanza: Soggiorno =====
+  - id: crono_casa_soggiorno
+    alias: "Crono Casa / Soggiorno - controllo"
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: sensor.temperatura_soggiorno          # <-- SENSORE stanza
+      - platform: state
+        entity_id:
+          - sensor.crono_casa_target_effettivo
+          - input_boolean.cronotermostato_master
+          - input_select.crono_casa_hvac
+          - input_select.crono_casa_mode
+      - platform: time_pattern
+        minutes: "/2"
+    action:
+      - variables:
+          room_sensor: sensor.temperatura_soggiorno       # <-- SENSORE stanza
+          actuators:                                       # <-- ATTUATORI stanza
+            - switch.rele_soggiorno
+          cur: "{{ states(room_sensor) | float(none) }}"
+          tgt: "{{ states('sensor.crono_casa_target_effettivo') | float(none) }}"
+          hyst: "{{ states('input_number.crono_casa_isteresi') | float(0.3) }}"
+          cooling: "{{ is_state('input_select.crono_casa_hvac', 'raffrescamento') }}"
+          off_mode: "{{ is_state('input_select.crono_casa_mode', 'off') }}"
+          enabled: "{{ is_state('input_boolean.cronotermostato_master', 'on') }}"
+      - choose:
+          # spento / dati invalidi / off in raffrescamento -> spegni tutto
+          - conditions: "{{ not enabled or cur is none or tgt is none or (cooling and off_mode) }}"
+            sequence:
+              - service: homeassistant.turn_off
+                target: { entity_id: "{{ actuators }}" }
+          # --- RAFFRESCAMENTO ---
+          - conditions: "{{ cooling and cur > (tgt + hyst) }}"
+            sequence:
+              - service: homeassistant.turn_on
+                target: { entity_id: "{{ actuators }}" }
+          - conditions: "{{ cooling and cur < (tgt - hyst) }}"
+            sequence:
+              - service: homeassistant.turn_off
+                target: { entity_id: "{{ actuators }}" }
+          # --- RISCALDAMENTO ---
+          - conditions: "{{ not cooling and cur < (tgt - hyst) }}"
+            sequence:
+              - service: homeassistant.turn_on
+                target: { entity_id: "{{ actuators }}" }
+          - conditions: "{{ not cooling and cur > (tgt + hyst) }}"
+            sequence:
+              - service: homeassistant.turn_off
+                target: { entity_id: "{{ actuators }}" }
+        # dentro l'isteresi -> non fare nulla
+
+  # ===== ZONA CASA - Stanza: Camera =====
+  - id: crono_casa_camera
+    alias: "Crono Casa / Camera - controllo"
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: sensor.temperatura_camera             # <-- SENSORE stanza
+      - platform: state
+        entity_id:
+          - sensor.crono_casa_target_effettivo
+          - input_boolean.cronotermostato_master
+          - input_select.crono_casa_hvac
+          - input_select.crono_casa_mode
+      - platform: time_pattern
+        minutes: "/2"
+    action:
+      - variables:
+          room_sensor: sensor.temperatura_camera          # <-- SENSORE stanza
+          actuators:                                       # <-- ATTUATORI stanza
+            - switch.rele_camera
+          cur: "{{ states(room_sensor) | float(none) }}"
+          tgt: "{{ states('sensor.crono_casa_target_effettivo') | float(none) }}"
+          hyst: "{{ states('input_number.crono_casa_isteresi') | float(0.3) }}"
+          cooling: "{{ is_state('input_select.crono_casa_hvac', 'raffrescamento') }}"
+          off_mode: "{{ is_state('input_select.crono_casa_mode', 'off') }}"
+          enabled: "{{ is_state('input_boolean.cronotermostato_master', 'on') }}"
+      - choose:
+          - conditions: "{{ not enabled or cur is none or tgt is none or (cooling and off_mode) }}"
+            sequence:
+              - service: homeassistant.turn_off
+                target: { entity_id: "{{ actuators }}" }
+          - conditions: "{{ cooling and cur > (tgt + hyst) }}"
+            sequence:
+              - service: homeassistant.turn_on
+                target: { entity_id: "{{ actuators }}" }
+          - conditions: "{{ cooling and cur < (tgt - hyst) }}"
+            sequence:
+              - service: homeassistant.turn_off
+                target: { entity_id: "{{ actuators }}" }
+          - conditions: "{{ not cooling and cur < (tgt - hyst) }}"
+            sequence:
+              - service: homeassistant.turn_on
+                target: { entity_id: "{{ actuators }}" }
+          - conditions: "{{ not cooling and cur > (tgt + hyst) }}"
+            sequence:
+              - service: homeassistant.turn_off
+                target: { entity_id: "{{ actuators }}" }
+
+  # ===== ZONA UFFICIO - Stanza: Open space =====
+  - id: crono_ufficio_openspace
+    alias: "Crono Ufficio / Open space - controllo"
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: sensor.temperatura_openspace          # <-- SENSORE stanza
+      - platform: state
+        entity_id:
+          - sensor.crono_ufficio_target_effettivo
+          - input_boolean.cronotermostato_master
+          - input_select.crono_ufficio_hvac
+          - input_select.crono_ufficio_mode
+      - platform: time_pattern
+        minutes: "/2"
+    action:
+      - variables:
+          room_sensor: sensor.temperatura_openspace       # <-- SENSORE stanza
+          actuators:                                       # <-- ATTUATORI stanza
+            - switch.rele_openspace_1
+            - switch.rele_openspace_2
+          cur: "{{ states(room_sensor) | float(none) }}"
+          tgt: "{{ states('sensor.crono_ufficio_target_effettivo') | float(none) }}"
+          hyst: "{{ states('input_number.crono_ufficio_isteresi') | float(0.3) }}"
+          cooling: "{{ is_state('input_select.crono_ufficio_hvac', 'raffrescamento') }}"
+          off_mode: "{{ is_state('input_select.crono_ufficio_mode', 'off') }}"
+          enabled: "{{ is_state('input_boolean.cronotermostato_master', 'on') }}"
+      - choose:
+          - conditions: "{{ not enabled or cur is none or tgt is none or (cooling and off_mode) }}"
+            sequence:
+              - service: homeassistant.turn_off
+                target: { entity_id: "{{ actuators }}" }
+          - conditions: "{{ cooling and cur > (tgt + hyst) }}"
+            sequence:
+              - service: homeassistant.turn_on
+                target: { entity_id: "{{ actuators }}" }
+          - conditions: "{{ cooling and cur < (tgt - hyst) }}"
+            sequence:
+              - service: homeassistant.turn_off
+                target: { entity_id: "{{ actuators }}" }
+          - conditions: "{{ not cooling and cur < (tgt - hyst) }}"
+            sequence:
+              - service: homeassistant.turn_on
+                target: { entity_id: "{{ actuators }}" }
+          - conditions: "{{ not cooling and cur > (tgt + hyst) }}"
+            sequence:
+              - service: homeassistant.turn_off
+                target: { entity_id: "{{ actuators }}" }

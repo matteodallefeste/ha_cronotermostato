@@ -1,0 +1,142 @@
+{#
+  =====================================================================
+  CRONOTERMOSTATO SETTIMANALE  -  MODELLO DATI + LOGICA
+  =====================================================================
+  Questo file va in:  <config>/custom_templates/cronotermostato.jinja
+  Dopo ogni modifica: Strumenti per sviluppatori > YAML > "Ricarica
+  Custom Jinja Templates" (o riavvio).
+
+  Qui dentro c'e' TUTTA la configurazione "statica":
+    - profiles : i profili giornalieri (fasce orarie -> temperatura)
+    - zones    : le zone, con assegnazione settimanale e override
+
+  Le stanze/sensori/attuatori NON stanno qui: sono gestiti dalle
+  automazioni nel package (config/packages/cronotermostato.yaml).
+#}
+
+{#-  ---------------------------------------------------------------
+     CONFIGURAZIONE  (l'unico blocco che devi modificare)
+     ---------------------------------------------------------------
+     Regole profili:
+       - ogni profilo e' una LISTA di fasce ordinate per orario
+       - ogni fascia = {"start": "HH:MM", "temp": <gradi>}
+       - la prima fascia DEVE iniziare a "00:00"
+       - una fascia resta valida fino all'inizio della successiva
+         (l'ultima resta valida fino a mezzanotte)
+
+     Regole zone:
+       - weekly: profilo per ogni giorno (0=Lun ... 6=Dom)
+       - overrides: periodi che sostituiscono il profilo settimanale
+         {"start": "YYYY-MM-DD", "end": "YYYY-MM-DD", "profile": "..."}
+         (estremi inclusi)
+-#}
+{% macro config() %}
+{{
+{
+  "profiles": {
+
+    "casa_feriale": [
+      {"start": "00:00", "temp": 18},
+      {"start": "06:30", "temp": 21},
+      {"start": "08:30", "temp": 18},
+      {"start": "12:00", "temp": 21},
+      {"start": "16:00", "temp": 20},
+      {"start": "22:00", "temp": 18}
+    ],
+
+    "casa_weekend": [
+      {"start": "00:00", "temp": 19},
+      {"start": "08:00", "temp": 21},
+      {"start": "23:00", "temp": 18}
+    ],
+
+    "ufficio_feriale": [
+      {"start": "00:00", "temp": 16},
+      {"start": "06:00", "temp": 22},
+      {"start": "17:30", "temp": 16}
+    ],
+
+    "assente": [
+      {"start": "00:00", "temp": 16}
+    ]
+
+  },
+
+  "zones": {
+
+    "casa": {
+      "name": "Casa",
+      "weekly": {
+        "0": "casa_feriale",
+        "1": "casa_feriale",
+        "2": "casa_feriale",
+        "3": "casa_feriale",
+        "4": "casa_feriale",
+        "5": "casa_weekend",
+        "6": "casa_weekend"
+      },
+      "overrides": [
+        {"start": "2026-08-01", "end": "2026-08-20", "profile": "assente"}
+      ]
+    },
+
+    "ufficio": {
+      "name": "Ufficio",
+      "weekly": {
+        "0": "ufficio_feriale",
+        "1": "ufficio_feriale",
+        "2": "ufficio_feriale",
+        "3": "ufficio_feriale",
+        "4": "ufficio_feriale",
+        "5": "assente",
+        "6": "assente"
+      },
+      "overrides": [
+        {"start": "2026-12-24", "end": "2027-01-06", "profile": "assente"}
+      ]
+    }
+
+  }
+}
+| to_json }}
+{% endmacro %}
+
+
+{#-  ---------------------------------------------------------------
+     LOGICA  (non serve modificare da qui in giu')
+     --------------------------------------------------------------- #}
+
+{#- Nome del profilo attualmente attivo per una zona (considera override) -#}
+{% macro active_profile(zone_key) %}
+{%- set data = config() | from_json -%}
+{%- set zone = data.zones[zone_key] -%}
+{%- set today = now() -%}
+{%- set wd = today.weekday() | string -%}
+{%- set date = today.strftime('%Y-%m-%d') -%}
+{%- set ns = namespace(profile=zone.weekly[wd]) -%}
+{%- for ov in zone.overrides -%}
+  {%- if ov.start <= date and date <= ov.end -%}
+    {%- set ns.profile = ov.profile -%}
+  {%- endif -%}
+{%- endfor -%}
+{{- ns.profile -}}
+{% endmacro %}
+
+
+{#- Temperatura target "da programma" per una zona nell'istante corrente -#}
+{% macro scheduled_target(zone_key) %}
+{%- set data = config() | from_json -%}
+{%- set prof = active_profile(zone_key) | trim -%}
+{%- set slots = data.profiles[prof] -%}
+{%- set today = now() -%}
+{%- set nowmin = today.hour * 60 + today.minute -%}
+{%- set t = namespace(temp=slots[-1].temp) -%}
+{%- for s in slots -%}
+  {%- set parts = s.start.split(':') -%}
+  {%- set smin = parts[0] | int * 60 + parts[1] | int -%}
+  {%- if smin <= nowmin -%}
+    {%- set t.temp = s.temp -%}
+  {%- endif -%}
+{%- endfor -%}
+{{- t.temp -}}
+{% endmacro %}
