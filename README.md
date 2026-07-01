@@ -78,12 +78,17 @@ Dopo ogni modifica al `.jinja`:
 
 ## Aggiungere una STANZA
 
-Duplica un blocco `automation:` (es. "Crono Casa / Soggiorno") e cambia solo:
+Ogni stanza ha **due** parti:
 
-- `id` / `alias`
-- `room_sensor` → il sensore della stanza
-- `actuators` → uno o più attuatori della stanza
-- `target_sensor` → `sensor.crono_<zona>_target_effettivo`
+1. Un `binary_sensor.crono_<stanza>_richiesta` nel blocco `template:` della
+   zona (aggiungi il sensore della stanza ai `trigger` e duplica un elemento
+   `binary_sensor` cambiando `name`/`unique_id` e il sensore stanza).
+2. Un'automazione di attuazione (es. "Crono Casa / Soggiorno - attuatori")
+   dove imposti:
+   - `id` / `alias`
+   - `actuators_heat` → attuatori usati in riscaldamento
+   - `actuators_cool` → attuatori usati in raffrescamento (`[]` = come heat)
+   - il `binary_sensor` e l'`input_select ..._hvac` della zona
 
 ## Entità create (per zona, es. `casa`)
 
@@ -99,7 +104,30 @@ Duplica un blocco `automation:` (es. "Crono Casa / Soggiorno") e cambia solo:
 | `input_number.crono_casa_isteresi` | isteresi della zona (°C) |
 | `input_select.crono_casa_hvac` | riscaldamento / raffrescamento |
 
+Per ogni **stanza** viene creato anche un binary_sensor "richiesta"
+(es. `binary_sensor.crono_casa_soggiorno_richiesta`), vedi sotto.
+
 Globale: `input_boolean.cronotermostato_master` (on/off generale).
+
+## Stati pubblicati (per integrazione con altre automazioni)
+
+Il cuore della logica è esposto come `binary_sensor.crono_<stanza>_richiesta`:
+
+- `on` = la stanza sta chiedendo caldo/freddo; `off` = soddisfatta / disattiva
+- attributi: `modalita` (riscaldamento/raffrescamento), `temperatura`, `target`
+
+È la **fonte di verità**: qualsiasi automazione, dashboard o entità esterna
+può leggerlo/intercettarlo. Le automazioni degli attuatori si limitano a
+rispecchiarlo. Utile per: comandare una caldaia/pompa comune (accendila se
+almeno un `..._richiesta` è `on`), logiche di pre/post-ventilazione,
+notifiche, o integrazioni con altri sistemi.
+
+Esempio — accendi la caldaia se **almeno una** stanza chiede caldo:
+
+```yaml
+binary_sensor.crono_casa_soggiorno_richiesta == 'on'
+  or binary_sensor.crono_casa_camera_richiesta == 'on'
+```
 
 ## Riscaldamento e raffrescamento
 
@@ -117,10 +145,17 @@ gli stessi) e assegnali nella settimana. In `raffrescamento`, la modalità
 `off` spegne del tutto gli attuatori; in `riscaldamento`, `off` usa il
 setpoint **antigelo** per la protezione dal gelo.
 
+**Attuatori separati caldo/freddo**: ogni stanza definisce `actuators_heat` e
+`actuators_cool`. Se `actuators_cool` è `[]`, si riusano gli stessi del caldo.
+Il sistema non attivo viene sempre spento, quindi caldo e freddo non sono mai
+accesi contemporaneamente.
+
 ## Note / limiti
 
-- Gli attuatori vengono ri-comandati almeno ogni 2 minuti (`time_pattern`),
-  oltre che ad ogni variazione di sensore/target: robusto ai riavvii.
+- Il `binary_sensor.crono_<stanza>_richiesta` viene ricalcolato ad ogni
+  variazione di sensore/target/modalità e comunque ogni 2 minuti
+  (`time_pattern`): robusto ai riavvii. Gli attuatori seguono i suoi cambi
+  di stato.
 - L'isteresi è simmetrica e per zona: `input_number.crono_<zona>_isteresi`.
 - Sostituisci gli `entity_id` di esempio (`sensor.temperatura_*`,
   `switch.rele_*`) con quelli reali del tuo impianto.
