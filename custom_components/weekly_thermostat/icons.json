@@ -1,0 +1,9 @@
+{
+  "entity": {
+    "climate": {
+      "weekly_thermostat": {
+        "default": "mdi:calendar-clock"
+      }
+    }
+  }
+}
