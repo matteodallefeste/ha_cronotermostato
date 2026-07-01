@@ -1,5 +1,109 @@
 {
   "title": "Termostato settimanale",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Termostato settimanale",
+        "description": "Crea il Termostato settimanale. Dopo la configurazione, usa il pulsante \"Configura\" dell'integrazione per aggiungere profili giornalieri, zone e stanze."
+      }
+    },
+    "abort": {
+      "already_configured": "Il Termostato settimanale è già configurato."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Termostato settimanale",
+        "menu_options": {
+          "settings": "Impostazioni generali",
+          "profiles": "Profili giornalieri",
+          "zones": "Zone e programma settimanale",
+          "rooms": "Stanze (sensori e attuatori)",
+          "finish": "Salva e chiudi"
+        }
+      },
+      "settings": {
+        "title": "Impostazioni generali",
+        "data": {
+          "hysteresis": "Isteresi predefinita (°C)"
+        }
+      },
+      "profiles": {
+        "title": "Profili giornalieri",
+        "description": "Scegli un profilo da modificare oppure aggiungine uno nuovo.",
+        "data": {
+          "profile": "Profilo"
+        }
+      },
+      "profile_edit": {
+        "title": "Modifica profilo",
+        "description": "Una fascia per riga come \"HH:MM temperatura\" (es. \"06:30 21\"). La prima fascia deve iniziare alle 00:00.",
+        "data": {
+          "name": "Nome profilo",
+          "slots": "Fasce orarie",
+          "delete": "Elimina questo profilo"
+        }
+      },
+      "zones": {
+        "title": "Zone",
+        "description": "Scegli una zona da modificare oppure aggiungine una nuova.",
+        "data": {
+          "zone": "Zona"
+        }
+      },
+      "zone_edit": {
+        "title": "Modifica zona",
+        "description": "Assegna un profilo giornaliero a ogni giorno. Gli override sostituiscono il programma in un intervallo di date: una riga \"AAAA-MM-GG AAAA-MM-GG profilo\".",
+        "data": {
+          "name": "Nome zona",
+          "mon": "Lunedì",
+          "tue": "Martedì",
+          "wed": "Mercoledì",
+          "thu": "Giovedì",
+          "fri": "Venerdì",
+          "sat": "Sabato",
+          "sun": "Domenica",
+          "overrides": "Override (ferie / assenza)",
+          "delete": "Elimina questa zona"
+        }
+      },
+      "rooms": {
+        "title": "Stanze",
+        "description": "Scegli la zona di cui gestire le stanze.",
+        "data": {
+          "zone": "Zona"
+        }
+      },
+      "room_select": {
+        "title": "Stanze",
+        "description": "Scegli una stanza da modificare oppure aggiungine una nuova.",
+        "data": {
+          "room": "Stanza"
+        }
+      },
+      "room_edit": {
+        "title": "Modifica stanza",
+        "data": {
+          "name": "Nome stanza",
+          "sensor": "Sensore di temperatura",
+          "heaters": "Attuatori riscaldamento",
+          "coolers": "Attuatori raffrescamento",
+          "hysteresis": "Isteresi (°C)",
+          "away_temperature": "Temperatura assenza (°C)",
+          "min_temperature": "Temperatura minima (°C)",
+          "max_temperature": "Temperatura massima (°C)",
+          "delete": "Elimina questa stanza"
+        }
+      }
+    },
+    "error": {
+      "invalid_slots": "Fasce non valide. Usa \"HH:MM temperatura\" su ogni riga; la prima fascia deve iniziare alle 00:00.",
+      "invalid_overrides": "Override non validi. Usa \"AAAA-MM-GG AAAA-MM-GG profilo\" su ogni riga, riferendoti a un profilo esistente.",
+      "no_profiles": "Crea almeno un profilo giornaliero prima di aggiungere una zona.",
+      "no_zones": "Crea almeno una zona prima di aggiungere le stanze."
+    }
+  },
   "entity": {
     "climate": {
       "weekly_thermostat": {

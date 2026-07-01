@@ -19,6 +19,7 @@ from homeassistant.components.climate import (
     HVACMode,
 )
 from homeassistant.components.climate.const import PRESET_AWAY
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     ATTR_ENTITY_ID,
     ATTR_TEMPERATURE,
@@ -36,7 +37,6 @@ from homeassistant.helpers.event import (
     async_track_time_interval,
 )
 from homeassistant.helpers.restore_state import RestoreEntity
-from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 from homeassistant.util import dt as dt_util
 
 from .const import (
@@ -51,6 +51,7 @@ from .const import (
     CONF_OVERRIDES,
     CONF_PROFILE,
     CONF_PROFILES,
+    CONF_ROOMS,
     CONF_SCHEDULE,
     CONF_SENSOR,
     CONF_START,
@@ -58,6 +59,7 @@ from .const import (
     CONF_TIME,
     CONF_ZONES,
     DEFAULT_AWAY_TEMP,
+    DEFAULT_HYSTERESIS,
     DEFAULT_MAX_TEMP,
     DEFAULT_MIN_TEMP,
     DEFAULT_TARGET_STEP,
@@ -72,24 +74,20 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 
-async def async_setup_platform(
+async def async_setup_entry(
     hass: HomeAssistant,
-    config: ConfigType,
+    entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
-    discovery_info: DiscoveryInfoType | None = None,
 ) -> None:
-    """Set up the climate entities from the YAML configuration."""
-    if discovery_info is None:
-        return
-
-    data = hass.data[DOMAIN]
-    profiles = data[CONF_PROFILES]
-    global_hysteresis = data[CONF_HYSTERESIS]
+    """Set up the climate entities from a config entry."""
+    data = entry.options
+    profiles = data.get(CONF_PROFILES, {})
+    global_hysteresis = data.get(CONF_HYSTERESIS, DEFAULT_HYSTERESIS)
 
     entities: list[WeeklyThermostat] = []
-    for zone_id, zone in data[CONF_ZONES].items():
+    for zone_id, zone in data.get(CONF_ZONES, {}).items():
         zone_name = zone.get(CONF_NAME) or zone_id.replace("_", " ").title()
-        for room_id, room in zone[CONF_ROOMS].items():
+        for room_id, room in zone.get(CONF_ROOMS, {}).items():
             entities.append(
                 WeeklyThermostat(
                     zone_id=zone_id,

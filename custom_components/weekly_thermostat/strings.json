@@ -1,5 +1,109 @@
 {
   "title": "Weekly Thermostat",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Weekly Thermostat",
+        "description": "This creates the Weekly Thermostat. After setup, use the integration's \"Configure\" button to add daily profiles, zones and rooms."
+      }
+    },
+    "abort": {
+      "already_configured": "Weekly Thermostat is already set up."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Weekly Thermostat",
+        "menu_options": {
+          "settings": "Global settings",
+          "profiles": "Daily profiles",
+          "zones": "Zones & weekly schedule",
+          "rooms": "Rooms (sensors & actuators)",
+          "finish": "Save & close"
+        }
+      },
+      "settings": {
+        "title": "Global settings",
+        "data": {
+          "hysteresis": "Default hysteresis (°C)"
+        }
+      },
+      "profiles": {
+        "title": "Daily profiles",
+        "description": "Pick a profile to edit, or add a new one.",
+        "data": {
+          "profile": "Profile"
+        }
+      },
+      "profile_edit": {
+        "title": "Edit profile",
+        "description": "One slot per line as \"HH:MM temperature\" (e.g. \"06:30 21\"). The first slot must start at 00:00.",
+        "data": {
+          "name": "Profile name",
+          "slots": "Time slots",
+          "delete": "Delete this profile"
+        }
+      },
+      "zones": {
+        "title": "Zones",
+        "description": "Pick a zone to edit, or add a new one.",
+        "data": {
+          "zone": "Zone"
+        }
+      },
+      "zone_edit": {
+        "title": "Edit zone",
+        "description": "Assign a daily profile to each weekday. Overrides replace the schedule for a date range: one \"YYYY-MM-DD YYYY-MM-DD profile\" per line.",
+        "data": {
+          "name": "Zone name",
+          "mon": "Monday",
+          "tue": "Tuesday",
+          "wed": "Wednesday",
+          "thu": "Thursday",
+          "fri": "Friday",
+          "sat": "Saturday",
+          "sun": "Sunday",
+          "overrides": "Overrides (holidays / absence)",
+          "delete": "Delete this zone"
+        }
+      },
+      "rooms": {
+        "title": "Rooms",
+        "description": "Pick the zone whose rooms you want to manage.",
+        "data": {
+          "zone": "Zone"
+        }
+      },
+      "room_select": {
+        "title": "Rooms",
+        "description": "Pick a room to edit, or add a new one.",
+        "data": {
+          "room": "Room"
+        }
+      },
+      "room_edit": {
+        "title": "Edit room",
+        "data": {
+          "name": "Room name",
+          "sensor": "Temperature sensor",
+          "heaters": "Heating actuators",
+          "coolers": "Cooling actuators",
+          "hysteresis": "Hysteresis (°C)",
+          "away_temperature": "Away temperature (°C)",
+          "min_temperature": "Minimum temperature (°C)",
+          "max_temperature": "Maximum temperature (°C)",
+          "delete": "Delete this room"
+        }
+      }
+    },
+    "error": {
+      "invalid_slots": "Invalid slots. Use \"HH:MM temperature\" on each line; the first slot must start at 00:00.",
+      "invalid_overrides": "Invalid overrides. Use \"YYYY-MM-DD YYYY-MM-DD profile\" on each line, referencing an existing profile.",
+      "no_profiles": "Create at least one daily profile before adding a zone.",
+      "no_zones": "Create at least one zone before adding rooms."
+    }
+  },
   "entity": {
     "climate": {
       "weekly_thermostat": {

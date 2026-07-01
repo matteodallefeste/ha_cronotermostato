@@ -61,7 +61,27 @@ Copy `custom_components/weekly_thermostat/` into your Home Assistant
 
 ## Configuration
 
-The integration is configured in YAML (see
+### Via the UI (recommended)
+
+1. **Settings → Devices & Services → Add Integration → Weekly Thermostat.**
+2. Open the integration's **Configure** button to manage everything from a
+   menu:
+   - **Global settings** — default hysteresis
+   - **Daily profiles** — add/edit/remove profiles (one `HH:MM temperature`
+     slot per line)
+   - **Zones & weekly schedule** — assign a profile to each weekday and add
+     date-range overrides
+   - **Rooms** — pick the temperature sensor and the heating/cooling actuators
+3. Choose **Save & close**. Changes are applied immediately (the entry
+   reloads).
+
+Order matters: create at least one **profile** before adding a **zone**, and a
+**zone** before adding **rooms**.
+
+### Via YAML (optional)
+
+You can also bootstrap the configuration from YAML — it is imported into the
+integration on start (see
 [`examples/configuration.yaml`](examples/configuration.yaml) for a full
 example). Add a `weekly_thermostat:` block to your `configuration.yaml`:
 

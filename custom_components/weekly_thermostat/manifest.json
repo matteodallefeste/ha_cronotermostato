@@ -2,7 +2,7 @@
   "domain": "weekly_thermostat",
   "name": "Weekly Thermostat",
   "codeowners": ["@matteodallefeste"],
-  "config_flow": false,
+  "config_flow": true,
   "documentation": "https://github.com/matteodallefeste/ha_cronotermostato",
   "integration_type": "hub",
   "iot_class": "local_polling",

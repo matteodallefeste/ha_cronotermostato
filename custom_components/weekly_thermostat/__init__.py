@@ -11,9 +11,10 @@ from __future__ import annotations
 
 import voluptuous as vol
 
+from homeassistant.config_entries import SOURCE_IMPORT, ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import config_validation as cv, discovery
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 
 from .const import (
@@ -98,7 +99,10 @@ CONFIG_SCHEMA = vol.Schema(
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
-    """Set up the Weekly Thermostat integration from YAML."""
+    """Import YAML configuration (if any) into a config entry."""
+    if DOMAIN not in config:
+        return True
+
     conf = config[DOMAIN]
 
     # Validate that every referenced profile actually exists.
@@ -113,9 +117,26 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
                 f"{', '.join(sorted(missing))}"
             )
 
-    hass.data[DOMAIN] = conf
-
     hass.async_create_task(
-        discovery.async_load_platform(hass, Platform.CLIMATE, DOMAIN, {}, config)
+        hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": SOURCE_IMPORT}, data=conf
+        )
     )
     return True
+
+
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Set up Weekly Thermostat from a config entry."""
+    entry.async_on_unload(entry.add_update_listener(_async_update_listener))
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    return True
+
+
+async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Unload a config entry."""
+    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+
+
+async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Reload the entry when its options change."""
+    await hass.config_entries.async_reload(entry)
