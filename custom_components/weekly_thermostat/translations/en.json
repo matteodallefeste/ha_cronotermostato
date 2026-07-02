@@ -26,7 +26,10 @@
       },
       "autodetect": {
         "title": "Auto-detect areas",
-        "description": "Home Assistant areas that contain a temperature sensor are listed below. Confirm to create a default daily profile (if none exists yet), floors (from your Home Assistant floors) and one area per detected room.\n\nAlready-configured areas are left untouched. Heating/cooling actuators are never guessed — add them afterwards. ↩ marks a floor that already exists; ⚠️ marks a room with more than one temperature sensor, so double-check which one was picked.\n\n{summary}"
+        "description": "Home Assistant areas that contain a temperature sensor are listed below. Uncheck any you don't want, then confirm. Confirming creates a default daily profile (if none exists yet), floors (from your Home Assistant floors) and the selected areas. Already-configured areas are left untouched; heating/cooling actuators are never guessed — add them afterwards. ⚠️ marks a room with more than one temperature sensor.",
+        "data": {
+          "selected": "Areas to create"
+        }
       },
       "settings": {
         "title": "Global settings",

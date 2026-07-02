@@ -12,6 +12,7 @@ that structure, resolving each area to its ``climate`` entity id.
 
 from __future__ import annotations
 
+import copy
 import os
 from typing import Any
 
@@ -22,15 +23,27 @@ from homeassistant.components.frontend import async_remove_panel
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import entity_registry as er
 
+from . import autodetect, edit
 from .const import (
+    CONF_AREA,
     CONF_AREAS,
+    CONF_AWAY_TEMP,
+    CONF_COOLERS,
+    CONF_FLOOR,
     CONF_FLOORS,
+    CONF_HEATERS,
     CONF_HYSTERESIS,
+    CONF_HYSTERESIS_COOL,
+    CONF_MAX_TEMP,
+    CONF_MIN_TEMP,
     CONF_NAME,
     CONF_OVERRIDES,
     CONF_PROFILES,
     CONF_SCHEDULE,
+    CONF_SENSOR,
+    CONF_SHOW_PANEL,
     DEFAULT_HYSTERESIS,
+    DEFAULT_SHOW_PANEL,
     DOMAIN,
     PANEL_ICON,
     PANEL_JS_FILENAME,
@@ -38,6 +51,7 @@ from .const import (
     PANEL_STATIC_URL,
     PANEL_TITLE,
     PANEL_URL_PATH,
+    WS_TYPE_AUTODETECT,
     WS_TYPE_CONFIG,
 )
 
@@ -56,6 +70,8 @@ def async_register_websocket(hass: HomeAssistant) -> None:
     if data.get(_WS_FLAG):
         return
     websocket_api.async_register_command(hass, _ws_get_config)
+    websocket_api.async_register_command(hass, _ws_autodetect)
+    edit.async_register(hass)
     data[_WS_FLAG] = True
 
 
@@ -82,12 +98,22 @@ def _ws_get_config(
                     "key": area_id,
                     "name": area.get(CONF_NAME) or area_id,
                     "entity_id": entity_id,
+                    "ha_area": area.get(CONF_AREA),
+                    "sensor": area.get(CONF_SENSOR, ""),
+                    "heaters": area.get(CONF_HEATERS, []),
+                    "coolers": area.get(CONF_COOLERS, []),
+                    "hysteresis": area.get(CONF_HYSTERESIS),
+                    "hysteresis_cool": area.get(CONF_HYSTERESIS_COOL),
+                    "away_temperature": area.get(CONF_AWAY_TEMP),
+                    "min_temperature": area.get(CONF_MIN_TEMP),
+                    "max_temperature": area.get(CONF_MAX_TEMP),
                 }
             )
         floors_out.append(
             {
                 "key": floor_id,
                 "name": floor.get(CONF_NAME) or floor_id,
+                "ha_floor": floor.get(CONF_FLOOR),
                 "schedule": floor.get(CONF_SCHEDULE, {}),
                 "overrides": floor.get(CONF_OVERRIDES, []),
                 "areas": areas_out,
@@ -98,10 +124,45 @@ def _ws_get_config(
         msg["id"],
         {
             "hysteresis": options.get(CONF_HYSTERESIS, DEFAULT_HYSTERESIS),
+            "show_panel": options.get(CONF_SHOW_PANEL, DEFAULT_SHOW_PANEL),
             "profiles": options.get(CONF_PROFILES, {}),
             "floors": floors_out,
         },
     )
+
+
+@websocket_api.websocket_command({vol.Required("type"): WS_TYPE_AUTODETECT})
+@websocket_api.require_admin
+@callback
+def _ws_autodetect(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Run auto-detection and write the result into the config entry.
+
+    Reuses the same logic as the options-flow step. Non-destructive: only new
+    areas (with a temperature sensor, not already configured) are added. The
+    entry reloads via its update listener, so the panel repopulates.
+    """
+    entries = hass.config_entries.async_entries(DOMAIN)
+    if not entries:
+        connection.send_error(msg["id"], "not_found", "No config entry")
+        return
+
+    entry = entries[0]
+    options = copy.deepcopy(dict(entry.options))
+    options.setdefault(CONF_HYSTERESIS, DEFAULT_HYSTERESIS)
+    options.setdefault(CONF_PROFILES, {})
+    options.setdefault(CONF_FLOORS, {})
+
+    proposal = autodetect.build_proposal(hass, options)
+    created = autodetect.count_new_areas(proposal)
+    if created:
+        autodetect.apply_proposal(options, proposal)
+        hass.config_entries.async_update_entry(entry, options=options)
+
+    connection.send_result(msg["id"], {"created_areas": created})
 
 
 # --- Panel registration -------------------------------------------------

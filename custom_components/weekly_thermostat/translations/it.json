@@ -26,7 +26,10 @@
       },
       "autodetect": {
         "title": "Rileva automaticamente le aree",
-        "description": "Qui sotto sono elencate le aree di Home Assistant che contengono un sensore di temperatura. Conferma per creare un profilo giornaliero predefinito (se non ne esiste ancora uno), i floor (dai floor di Home Assistant) e un'area per ogni stanza rilevata.\n\nLe aree già configurate non vengono toccate. Gli attuatori di riscaldamento/raffrescamento non vengono mai indovinati: aggiungili dopo. ↩ indica un floor già esistente; ⚠️ indica una stanza con più di un sensore di temperatura, quindi verifica quale è stato scelto.\n\n{summary}"
+        "description": "Qui sotto sono elencate le aree di Home Assistant che contengono un sensore di temperatura. Deseleziona quelle che non vuoi, poi conferma. Confermando vengono creati un profilo giornaliero predefinito (se non ne esiste ancora uno), i floor (dai floor di Home Assistant) e le aree selezionate. Le aree già configurate non vengono toccate; gli attuatori di riscaldamento/raffrescamento non vengono mai indovinati: aggiungili dopo. ⚠️ indica una stanza con più di un sensore di temperatura.",
+        "data": {
+          "selected": "Aree da creare"
+        }
       },
       "settings": {
         "title": "Impostazioni generali",

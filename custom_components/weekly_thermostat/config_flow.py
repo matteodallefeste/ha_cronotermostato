@@ -17,32 +17,27 @@ the user.
 from __future__ import annotations
 
 import copy
-import re
 from typing import Any
 
 import voluptuous as vol
 
 from homeassistant.config_entries import ConfigEntry, ConfigFlow, OptionsFlow
 from homeassistant.core import callback
-from homeassistant.helpers import (
-    area_registry as ar,
-    device_registry as dr,
-    entity_registry as er,
-    selector,
+from homeassistant.helpers import area_registry as ar, selector
+
+from . import autodetect
+from .schedule import (
+    overrides_to_text as _overrides_to_text,
+    parse_overrides as _parse_overrides,
+    parse_slots as _parse_slots,
+    slots_to_text as _slots_to_text,
+    unique_key as _unique_key,
 )
-from homeassistant.util import slugify
-
-try:  # Floors were introduced in newer Home Assistant releases.
-    from homeassistant.helpers import floor_registry as fr
-except ImportError:  # pragma: no cover - older HA without floors
-    fr = None
-
 from .const import (
     CONF_AREA,
     CONF_AREAS,
     CONF_AWAY_TEMP,
     CONF_COOLERS,
-    CONF_END,
     CONF_FLOOR,
     CONF_FLOORS,
     CONF_HEATERS,
@@ -52,14 +47,10 @@ from .const import (
     CONF_MIN_TEMP,
     CONF_NAME,
     CONF_OVERRIDES,
-    CONF_PROFILE,
     CONF_PROFILES,
     CONF_SCHEDULE,
     CONF_SENSOR,
     CONF_SHOW_PANEL,
-    CONF_START,
-    CONF_TEMPERATURE,
-    CONF_TIME,
     DEFAULT_AWAY_TEMP,
     DEFAULT_HYSTERESIS,
     DEFAULT_MAX_TEMP,
@@ -72,80 +63,10 @@ from .const import (
 ADD_NEW = "__add_new__"
 CONF_SLOTS = "slots"
 CONF_DELETE = "delete"
-
-TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
-DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+CONF_SELECTED = "selected"
 
 _HAS_FLOOR_SELECTOR = hasattr(selector, "FloorSelector")
 _ACTUATOR_DOMAINS = ["switch", "input_boolean"]
-
-# Fallback names used when auto-detecting.
-AUTODETECT_PROFILE_NAME = "comfort"
-AUTODETECT_PROFILE_TEMP = 20.0
-AUTODETECT_NO_FLOOR_NAME = "Home"
-
-
-# --- Parsing helpers ---------------------------------------------------
-
-
-def _parse_slots(text: str) -> list[dict[str, Any]]:
-    """Parse a multi-line "HH:MM temperature" block into profile slots."""
-    slots: list[dict[str, Any]] = []
-    for raw in text.splitlines():
-        line = raw.strip()
-        if not line:
-            continue
-        parts = re.split(r"[=\s]+", line)
-        if len(parts) != 2 or not TIME_RE.match(parts[0]):
-            raise ValueError(f"Invalid slot: '{line}'")
-        try:
-            temperature = float(parts[1])
-        except ValueError as err:
-            raise ValueError(f"Invalid temperature: '{line}'") from err
-        slots.append({CONF_TIME: parts[0], CONF_TEMPERATURE: temperature})
-    slots.sort(key=lambda item: item[CONF_TIME])
-    if not slots or slots[0][CONF_TIME] != "00:00":
-        raise ValueError("The first slot must start at 00:00")
-    return slots
-
-
-def _slots_to_text(slots: list[dict[str, Any]]) -> str:
-    """Render profile slots back to an editable multi-line string."""
-    return "\n".join(f"{s[CONF_TIME]} {s[CONF_TEMPERATURE]}" for s in slots)
-
-
-def _parse_overrides(text: str, profiles: dict[str, Any]) -> list[dict[str, Any]]:
-    """Parse "YYYY-MM-DD YYYY-MM-DD profile" lines into overrides."""
-    overrides: list[dict[str, Any]] = []
-    for raw in text.splitlines():
-        line = raw.strip()
-        if not line:
-            continue
-        parts = line.split()
-        if len(parts) != 3 or not DATE_RE.match(parts[0]) or not DATE_RE.match(parts[1]):
-            raise ValueError(f"Invalid override: '{line}'")
-        if parts[2] not in profiles:
-            raise ValueError(f"Unknown profile in override: '{parts[2]}'")
-        overrides.append({CONF_START: parts[0], CONF_END: parts[1], CONF_PROFILE: parts[2]})
-    return overrides
-
-
-def _overrides_to_text(overrides: list[dict[str, Any]]) -> str:
-    """Render overrides back to an editable multi-line string."""
-    return "\n".join(
-        f"{o[CONF_START]} {o[CONF_END]} {o[CONF_PROFILE]}" for o in overrides
-    )
-
-
-def _unique_key(base: str, existing: dict[str, Any]) -> str:
-    """Return a slug-based key that does not collide with existing keys."""
-    base = slugify(base) or "item"
-    key = base
-    index = 2
-    while key in existing:
-        key = f"{base}_{index}"
-        index += 1
-    return key
 
 
 def _default_options() -> dict[str, Any]:
@@ -216,40 +137,9 @@ class WeeklyThermostatOptionsFlow(OptionsFlow):
         area = ar.async_get(self.hass).async_get_area(area_id)
         return area.name if area else area_id
 
-    def _floor_name(self, floor_id: str | None) -> str | None:
-        """Return the friendly name of a Home Assistant floor, if available."""
-        if not floor_id or fr is None:
-            return None
-        floor = fr.async_get(self.hass).async_get_floor(floor_id)
-        return floor.name if floor else None
-
     def _area_candidates(self, area_id: str | None) -> tuple[list[str], list[str]]:
         """Return (temperature sensors, switch actuators) found in an HA area."""
-        if not area_id:
-            return [], []
-        ent_reg = er.async_get(self.hass)
-        dev_reg = dr.async_get(self.hass)
-        entity_ids: set[str] = {
-            entry.entity_id for entry in er.async_entries_for_area(ent_reg, area_id)
-        }
-        for device in dr.async_entries_for_area(dev_reg, area_id):
-            for entry in er.async_entries_for_device(ent_reg, device.id):
-                if entry.area_id is None:
-                    entity_ids.add(entry.entity_id)
-
-        temp_sensors: list[str] = []
-        switches: list[str] = []
-        for entity_id in entity_ids:
-            domain = entity_id.split(".")[0]
-            if domain == "sensor":
-                state = self.hass.states.get(entity_id)
-                device_class = state.attributes.get("device_class") if state else None
-                unit = state.attributes.get("unit_of_measurement") if state else None
-                if device_class == "temperature" or unit in ("°C", "°F"):
-                    temp_sensors.append(entity_id)
-            elif domain in _ACTUATOR_DOMAINS:
-                switches.append(entity_id)
-        return sorted(temp_sensors), sorted(switches)
+        return autodetect.area_candidates(self.hass, area_id)
 
     # --- Main menu ------------------------------------------------------
 
@@ -271,144 +161,53 @@ class WeeklyThermostatOptionsFlow(OptionsFlow):
         """Persist all changes."""
         return self.async_create_entry(title="", data=self.options)
 
-    # --- Auto-detection -------------------------------------------------
-
-    def _build_autodetect_proposal(self) -> dict[str, Any]:
-        """Scan Home Assistant areas and propose floors/areas to create.
-
-        Only areas that hold a temperature sensor and are not already
-        configured become candidates. They are grouped by their Home Assistant
-        floor; when a configured floor is already linked to that HA floor the
-        new areas are attached to it instead of creating a duplicate.
-        """
-        floors_cfg = self.options[CONF_FLOORS]
-        used_area_ids = {
-            area.get(CONF_AREA)
-            for floor in floors_cfg.values()
-            for area in floor.get(CONF_AREAS, {}).values()
-            if area.get(CONF_AREA)
-        }
-        existing_by_ha_floor = {
-            floor.get(CONF_FLOOR): key
-            for key, floor in floors_cfg.items()
-            if floor.get(CONF_FLOOR)
-        }
-
-        grouped: dict[str | None, dict[str, Any]] = {}
-        for area in ar.async_get(self.hass).async_list_areas():
-            if area.id in used_area_ids:
-                continue
-            temp_sensors, _ = self._area_candidates(area.id)
-            if not temp_sensors:
-                continue
-            floor_id = getattr(area, "floor_id", None)
-            group = grouped.setdefault(
-                floor_id,
-                {
-                    "floor_id": floor_id,
-                    "floor_name": self._floor_name(floor_id) or AUTODETECT_NO_FLOOR_NAME,
-                    "existing_key": existing_by_ha_floor.get(floor_id),
-                    "areas": [],
-                },
-            )
-            group["areas"].append(
-                {
-                    "area_id": area.id,
-                    "name": area.name,
-                    "sensor": temp_sensors[0],
-                    "ambiguous": len(temp_sensors) > 1,
-                }
-            )
-
-        groups = sorted(grouped.values(), key=lambda g: g["floor_name"].lower())
-
-        profiles = self.options[CONF_PROFILES]
-        if profiles:
-            profile_key: str = next(iter(profiles))
-            seed_profile = False
-        else:
-            profile_key = _unique_key(AUTODETECT_PROFILE_NAME, profiles)
-            seed_profile = True
-
-        return {
-            "seed_profile": seed_profile,
-            "profile_key": profile_key,
-            "groups": groups,
-        }
-
-    @staticmethod
-    def _format_proposal(proposal: dict[str, Any]) -> str:
-        """Render a read-only summary of what auto-detection will create."""
-        lines: list[str] = []
-        for group in proposal["groups"]:
-            suffix = " ↩" if group["existing_key"] is not None else ""
-            lines.append(f"🏢 {group['floor_name']}{suffix}")
-            for area in group["areas"]:
-                flag = " ⚠️" if area["ambiguous"] else ""
-                lines.append(f"   • {area['name']} → {area['sensor']}{flag}")
-        return "\n".join(lines)
-
-    def _apply_autodetect(self, proposal: dict[str, Any]) -> None:
-        """Write the proposed profile, floors and areas into the options."""
-        profiles = self.options[CONF_PROFILES]
-        floors = self.options[CONF_FLOORS]
-        profile_key = proposal["profile_key"]
-
-        if proposal["seed_profile"]:
-            profiles[profile_key] = [
-                {CONF_TIME: "00:00", CONF_TEMPERATURE: AUTODETECT_PROFILE_TEMP}
-            ]
-
-        for group in proposal["groups"]:
-            floor_key = group["existing_key"]
-            if floor_key is None:
-                floor_key = _unique_key(group["floor_name"], floors)
-                floors[floor_key] = {
-                    CONF_NAME: group["floor_name"],
-                    CONF_FLOOR: group["floor_id"],
-                    CONF_SCHEDULE: {day: profile_key for day in WEEKDAYS},
-                    CONF_OVERRIDES: [],
-                    CONF_AREAS: {},
-                }
-            areas = floors[floor_key].setdefault(CONF_AREAS, {})
-            for detected in group["areas"]:
-                area_key = detected["area_id"]
-                if area_key in areas:
-                    continue
-                areas[area_key] = {
-                    CONF_NAME: detected["name"],
-                    CONF_AREA: detected["area_id"],
-                    CONF_SENSOR: detected["sensor"],
-                    CONF_HEATERS: [],
-                    CONF_COOLERS: [],
-                    CONF_HYSTERESIS: self.options[CONF_HYSTERESIS],
-                    CONF_AWAY_TEMP: DEFAULT_AWAY_TEMP,
-                    CONF_MIN_TEMP: DEFAULT_MIN_TEMP,
-                    CONF_MAX_TEMP: DEFAULT_MAX_TEMP,
-                }
+    # --- Auto-detection (shared logic lives in autodetect.py) -----------
 
     async def async_step_autodetect(self, user_input: dict[str, Any] | None = None):
-        """Propose (and, on confirm, create) floors/areas from HA registries."""
-        proposal = self._build_autodetect_proposal()
-
-        if user_input is not None:
-            if proposal["groups"]:
-                self._apply_autodetect(proposal)
-            return await self.async_step_init()
+        """Propose detected areas as a checklist; create only the selected ones."""
+        proposal = autodetect.build_proposal(self.hass, self.options)
 
         if not proposal["groups"]:
+            if user_input is not None:
+                return await self.async_step_init()
             return self.async_show_form(
                 step_id="autodetect",
                 data_schema=vol.Schema({}),
                 errors={"base": "nothing_detected"},
-                description_placeholders={"summary": "—"},
             )
 
-        return self.async_show_form(
-            step_id="autodetect",
-            data_schema=vol.Schema({}),
-            description_placeholders={"summary": self._format_proposal(proposal)},
+        if user_input is not None:
+            selected = set(user_input.get(CONF_SELECTED, []))
+            filtered = autodetect.filter_proposal(proposal, selected)
+            if filtered["groups"]:
+                autodetect.apply_proposal(self.options, filtered)
+            return await self.async_step_init()
+
+        options: list[selector.SelectOptionDict] = []
+        default: list[str] = []
+        for group in proposal["groups"]:
+            for area in group["areas"]:
+                flag = " ⚠️" if area["ambiguous"] else ""
+                options.append(
+                    selector.SelectOptionDict(
+                        value=area["area_id"],
+                        label=f"{group['floor_name']} · {area['name']} → {area['sensor']}{flag}",
+                    )
+                )
+                default.append(area["area_id"])
+
+        schema = vol.Schema(
+            {
+                vol.Optional(CONF_SELECTED, default=default): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=options,
+                        multiple=True,
+                        mode=selector.SelectSelectorMode.LIST,
+                    )
+                )
+            }
         )
+        return self.async_show_form(step_id="autodetect", data_schema=schema)
 
     # --- Global settings ------------------------------------------------
 

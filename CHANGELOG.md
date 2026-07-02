@@ -10,6 +10,40 @@ changelog to users.
 
 ## [Unreleased]
 
+## [26.7.3.1] - 2026-07-02
+
+### Added
+- **The sidebar panel is now a full editor.** Profiles, floors (weekday
+  schedule + holiday/away periods), areas (sensor, actuators, hysteresis…) and
+  global settings can all be created, edited and deleted directly from the
+  panel — no need to open the integration options. Editing is admin-only and
+  validated server-side (the config entry stays the single source of truth).
+- The panel's empty state offers in-place actions: **Auto-detect areas** and
+  **Open configuration**; once configured, editing/add shortcuts appear inline.
+- The options-flow auto-detect step is now a **checklist**: detected areas can
+  be unchecked before confirming, so false positives are never created.
+- The panel shows each floor's **date-range overrides** (holidays / away),
+  highlighting the one active today, and lets you add/edit them.
+- Clicking an area tile opens Home Assistant's native climate dialog, so a room
+  can be switched to **manual or away** (and its setpoint changed) from the
+  panel.
+
+### Changed
+- Auto-detection and schedule-validation logic extracted into shared modules
+  (`autodetect`, `schedule`) reused by the options flow and the panel's write
+  API, so validation lives in one place.
+- **License changed** from MIT to PolyForm Noncommercial 1.0.0 with additional
+  terms: free for noncommercial use, redistribution only within open-source
+  projects, all rights reserved by the author, commercial use by written
+  agreement only.
+
+### Fixed
+- Auto-detection no longer picks derived "temperature" sensors (dew point,
+  apparent/feels-like, wet-bulb, humidex…) as a room's temperature sensor.
+- Sensors are now classified from the entity registry (with a live-state
+  fallback), so real temperature sensors that are momentarily unavailable are
+  still detected; disabled entities are skipped.
+
 ## [26.7.3] - 2026-07-02
 
 ### Added

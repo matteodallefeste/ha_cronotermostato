@@ -183,4 +183,15 @@ The UI is available in English and Italian (`translations/en.json`,
 
 ## License
 
-MIT — see [`LICENSE`](LICENSE).
+Source-available under the **PolyForm Noncommercial License 1.0.0** with
+additional terms — see [`LICENSE`](LICENSE).
+
+In short:
+
+- **Free** for any noncommercial / non-professional use.
+- Copies and derivative works may be redistributed **only as part of an
+  open-source project** (OSI-approved license, full source public).
+- All rights remain the exclusive property of Matteo Dalle Feste, who may
+  change the license of future versions or close the software at any time.
+- **Commercial or professional use requires a separate written agreement** —
+  contact matteo@dallefeste.com.
