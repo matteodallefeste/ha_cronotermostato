@@ -25,3 +25,6 @@ jobs:
       - uses: hacs/action@main
         with:
           category: integration
+          # 'brands' is skipped until the icons are submitted to
+          # home-assistant/brands (separate PR). See brands/README.md.
+          ignore: brands
