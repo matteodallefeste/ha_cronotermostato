@@ -30,6 +30,7 @@ from .const import (
     CONF_FLOORS,
     CONF_HEATERS,
     CONF_HYSTERESIS,
+    CONF_HYSTERESIS_COOL,
     CONF_MAX_TEMP,
     CONF_MIN_TEMP,
     CONF_NAME,
@@ -38,12 +39,19 @@ from .const import (
     CONF_PROFILES,
     CONF_SCHEDULE,
     CONF_SENSOR,
+    CONF_SHOW_PANEL,
     CONF_START,
     CONF_TEMPERATURE,
     CONF_TIME,
     DEFAULT_HYSTERESIS,
+    DEFAULT_SHOW_PANEL,
     DOMAIN,
     WEEKDAYS,
+)
+from .panel import (
+    async_register_panel,
+    async_register_websocket,
+    async_remove_panel_if_present,
 )
 
 PLATFORMS = [Platform.CLIMATE]
@@ -71,6 +79,7 @@ AREA_SCHEMA = vol.Schema(
         vol.Optional(CONF_HEATERS, default=list): cv.entity_ids,
         vol.Optional(CONF_COOLERS, default=list): cv.entity_ids,
         vol.Optional(CONF_HYSTERESIS): vol.All(vol.Coerce(float), vol.Range(min=0.1)),
+        vol.Optional(CONF_HYSTERESIS_COOL): vol.All(vol.Coerce(float), vol.Range(min=0.1)),
         vol.Optional(CONF_AWAY_TEMP): vol.Coerce(float),
         vol.Optional(CONF_MIN_TEMP): vol.Coerce(float),
         vol.Optional(CONF_MAX_TEMP): vol.Coerce(float),
@@ -107,6 +116,8 @@ CONFIG_SCHEMA = vol.Schema(
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Import YAML configuration (if any) into a config entry."""
+    async_register_websocket(hass)
+
     if DOMAIN not in config:
         return True
 
@@ -136,11 +147,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Weekly Thermostat from a config entry."""
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
+    if entry.options.get(CONF_SHOW_PANEL, DEFAULT_SHOW_PANEL):
+        await async_register_panel(hass)
+    else:
+        async_remove_panel_if_present(hass)
     return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
+    async_remove_panel_if_present(hass)
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
 

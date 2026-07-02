@@ -48,6 +48,7 @@ from .const import (
     CONF_FLOORS,
     CONF_HEATERS,
     CONF_HYSTERESIS,
+    CONF_HYSTERESIS_COOL,
     CONF_MAX_TEMP,
     CONF_MIN_TEMP,
     CONF_NAME,
@@ -143,6 +144,11 @@ class WeeklyThermostat(ClimateEntity, RestoreEntity):
         self._heaters: list[str] = list(area.get(CONF_HEATERS, []))
         self._coolers: list[str] = list(area.get(CONF_COOLERS, []))
         self._hysteresis = float(area.get(CONF_HYSTERESIS, global_hysteresis))
+        # Cooling can use its own dead-band; falls back to the heating one.
+        cool_hysteresis = area.get(CONF_HYSTERESIS_COOL)
+        self._hysteresis_cool = (
+            float(cool_hysteresis) if cool_hysteresis is not None else self._hysteresis
+        )
         self._away_temp = float(area.get(CONF_AWAY_TEMP, DEFAULT_AWAY_TEMP))
         self._attr_min_temp = float(area.get(CONF_MIN_TEMP, DEFAULT_MIN_TEMP))
         self._attr_max_temp = float(area.get(CONF_MAX_TEMP, DEFAULT_MAX_TEMP))
@@ -249,6 +255,7 @@ class WeeklyThermostat(ClimateEntity, RestoreEntity):
         """Expose scheduling details for dashboards and other automations."""
         return {
             "hysteresis": self._hysteresis,
+            "hysteresis_cool": self._hysteresis_cool,
             "active_profile": self._active_profile(dt_util.now()),
             "scheduled_temperature": self._scheduled_target(),
             "heaters": self._heaters,
@@ -373,9 +380,9 @@ class WeeklyThermostat(ClimateEntity, RestoreEntity):
         if self._attr_hvac_mode == HVACMode.COOL:
             active, idle = self._coolers, self._heaters
             running_action = HVACAction.COOLING
-            if current > target + self._hysteresis:
+            if current > target + self._hysteresis_cool:
                 demand = True
-            elif current < target - self._hysteresis:
+            elif current < target - self._hysteresis_cool:
                 demand = False
             else:
                 demand = self._attr_hvac_action == HVACAction.COOLING

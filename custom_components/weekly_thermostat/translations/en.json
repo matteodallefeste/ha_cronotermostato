@@ -16,6 +16,7 @@
       "init": {
         "title": "Weekly Thermostat",
         "menu_options": {
+          "autodetect": "Auto-detect areas",
           "settings": "Global settings",
           "profiles": "Daily profiles",
           "floors": "Floors & weekly schedule",
@@ -23,10 +24,15 @@
           "finish": "Save & close"
         }
       },
+      "autodetect": {
+        "title": "Auto-detect areas",
+        "description": "Home Assistant areas that contain a temperature sensor are listed below. Confirm to create a default daily profile (if none exists yet), floors (from your Home Assistant floors) and one area per detected room.\n\nAlready-configured areas are left untouched. Heating/cooling actuators are never guessed — add them afterwards. ↩ marks a floor that already exists; ⚠️ marks a room with more than one temperature sensor, so double-check which one was picked.\n\n{summary}"
+      },
       "settings": {
         "title": "Global settings",
         "data": {
-          "hysteresis": "Default hysteresis (°C)"
+          "hysteresis": "Default hysteresis (°C)",
+          "show_panel": "Show the schedule panel in the sidebar"
         }
       },
       "profiles": {
@@ -97,7 +103,8 @@
           "sensor": "Temperature sensor",
           "heaters": "Heating actuators",
           "coolers": "Cooling actuators",
-          "hysteresis": "Hysteresis (°C)",
+          "hysteresis": "Heating hysteresis (°C)",
+          "hysteresis_cool": "Cooling hysteresis (°C, optional — defaults to heating)",
           "away_temperature": "Away temperature (°C)",
           "min_temperature": "Minimum temperature (°C)",
           "max_temperature": "Maximum temperature (°C)",
@@ -110,7 +117,8 @@
       "invalid_overrides": "Invalid overrides. Use \"YYYY-MM-DD YYYY-MM-DD profile\" on each line, referencing an existing profile.",
       "no_profiles": "Create at least one daily profile before adding a floor.",
       "no_floors": "Create at least one floor before adding areas.",
-      "area_exists": "That area is already configured on this floor."
+      "area_exists": "That area is already configured on this floor.",
+      "nothing_detected": "No new areas with a temperature sensor were found."
     }
   },
   "entity": {

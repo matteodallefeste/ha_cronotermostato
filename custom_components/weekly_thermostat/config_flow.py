@@ -7,6 +7,11 @@ menu-driven **options flow**, so users never have to touch YAML.
 Floors map to Home Assistant floors (a weekly-schedule group); areas map to
 Home Assistant areas (the room a thermostat lives in). When an area is picked,
 its temperature sensor and switch actuators are auto-suggested.
+
+The "Auto-detect areas" menu step scans every Home Assistant area for a
+temperature sensor and proposes a ready-made scaffold (a default profile plus
+floors and areas grouped by HA floor), leaving actuators to be confirmed by
+the user.
 """
 
 from __future__ import annotations
@@ -27,6 +32,11 @@ from homeassistant.helpers import (
 )
 from homeassistant.util import slugify
 
+try:  # Floors were introduced in newer Home Assistant releases.
+    from homeassistant.helpers import floor_registry as fr
+except ImportError:  # pragma: no cover - older HA without floors
+    fr = None
+
 from .const import (
     CONF_AREA,
     CONF_AREAS,
@@ -37,6 +47,7 @@ from .const import (
     CONF_FLOORS,
     CONF_HEATERS,
     CONF_HYSTERESIS,
+    CONF_HYSTERESIS_COOL,
     CONF_MAX_TEMP,
     CONF_MIN_TEMP,
     CONF_NAME,
@@ -45,6 +56,7 @@ from .const import (
     CONF_PROFILES,
     CONF_SCHEDULE,
     CONF_SENSOR,
+    CONF_SHOW_PANEL,
     CONF_START,
     CONF_TEMPERATURE,
     CONF_TIME,
@@ -52,6 +64,7 @@ from .const import (
     DEFAULT_HYSTERESIS,
     DEFAULT_MAX_TEMP,
     DEFAULT_MIN_TEMP,
+    DEFAULT_SHOW_PANEL,
     DOMAIN,
     WEEKDAYS,
 )
@@ -65,6 +78,11 @@ DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 _HAS_FLOOR_SELECTOR = hasattr(selector, "FloorSelector")
 _ACTUATOR_DOMAINS = ["switch", "input_boolean"]
+
+# Fallback names used when auto-detecting.
+AUTODETECT_PROFILE_NAME = "comfort"
+AUTODETECT_PROFILE_TEMP = 20.0
+AUTODETECT_NO_FLOOR_NAME = "Home"
 
 
 # --- Parsing helpers ---------------------------------------------------
@@ -132,7 +150,12 @@ def _unique_key(base: str, existing: dict[str, Any]) -> str:
 
 def _default_options() -> dict[str, Any]:
     """Return the empty option structure for a fresh entry."""
-    return {CONF_HYSTERESIS: DEFAULT_HYSTERESIS, CONF_PROFILES: {}, CONF_FLOORS: {}}
+    return {
+        CONF_HYSTERESIS: DEFAULT_HYSTERESIS,
+        CONF_SHOW_PANEL: DEFAULT_SHOW_PANEL,
+        CONF_PROFILES: {},
+        CONF_FLOORS: {},
+    }
 
 
 class WeeklyThermostatConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -175,6 +198,7 @@ class WeeklyThermostatOptionsFlow(OptionsFlow):
         self._entry = config_entry
         self.options: dict[str, Any] = copy.deepcopy(dict(config_entry.options))
         self.options.setdefault(CONF_HYSTERESIS, DEFAULT_HYSTERESIS)
+        self.options.setdefault(CONF_SHOW_PANEL, DEFAULT_SHOW_PANEL)
         self.options.setdefault(CONF_PROFILES, {})
         self.options.setdefault(CONF_FLOORS, {})
         self._profile_key: str | None = None
@@ -191,6 +215,13 @@ class WeeklyThermostatOptionsFlow(OptionsFlow):
             return ""
         area = ar.async_get(self.hass).async_get_area(area_id)
         return area.name if area else area_id
+
+    def _floor_name(self, floor_id: str | None) -> str | None:
+        """Return the friendly name of a Home Assistant floor, if available."""
+        if not floor_id or fr is None:
+            return None
+        floor = fr.async_get(self.hass).async_get_floor(floor_id)
+        return floor.name if floor else None
 
     def _area_candidates(self, area_id: str | None) -> tuple[list[str], list[str]]:
         """Return (temperature sensors, switch actuators) found in an HA area."""
@@ -226,12 +257,158 @@ class WeeklyThermostatOptionsFlow(OptionsFlow):
         """Show the main menu."""
         return self.async_show_menu(
             step_id="init",
-            menu_options=["settings", "profiles", "floors", "areas", "finish"],
+            menu_options=[
+                "autodetect",
+                "settings",
+                "profiles",
+                "floors",
+                "areas",
+                "finish",
+            ],
         )
 
     async def async_step_finish(self, user_input: dict[str, Any] | None = None):
         """Persist all changes."""
         return self.async_create_entry(title="", data=self.options)
+
+    # --- Auto-detection -------------------------------------------------
+
+    def _build_autodetect_proposal(self) -> dict[str, Any]:
+        """Scan Home Assistant areas and propose floors/areas to create.
+
+        Only areas that hold a temperature sensor and are not already
+        configured become candidates. They are grouped by their Home Assistant
+        floor; when a configured floor is already linked to that HA floor the
+        new areas are attached to it instead of creating a duplicate.
+        """
+        floors_cfg = self.options[CONF_FLOORS]
+        used_area_ids = {
+            area.get(CONF_AREA)
+            for floor in floors_cfg.values()
+            for area in floor.get(CONF_AREAS, {}).values()
+            if area.get(CONF_AREA)
+        }
+        existing_by_ha_floor = {
+            floor.get(CONF_FLOOR): key
+            for key, floor in floors_cfg.items()
+            if floor.get(CONF_FLOOR)
+        }
+
+        grouped: dict[str | None, dict[str, Any]] = {}
+        for area in ar.async_get(self.hass).async_list_areas():
+            if area.id in used_area_ids:
+                continue
+            temp_sensors, _ = self._area_candidates(area.id)
+            if not temp_sensors:
+                continue
+            floor_id = getattr(area, "floor_id", None)
+            group = grouped.setdefault(
+                floor_id,
+                {
+                    "floor_id": floor_id,
+                    "floor_name": self._floor_name(floor_id) or AUTODETECT_NO_FLOOR_NAME,
+                    "existing_key": existing_by_ha_floor.get(floor_id),
+                    "areas": [],
+                },
+            )
+            group["areas"].append(
+                {
+                    "area_id": area.id,
+                    "name": area.name,
+                    "sensor": temp_sensors[0],
+                    "ambiguous": len(temp_sensors) > 1,
+                }
+            )
+
+        groups = sorted(grouped.values(), key=lambda g: g["floor_name"].lower())
+
+        profiles = self.options[CONF_PROFILES]
+        if profiles:
+            profile_key: str = next(iter(profiles))
+            seed_profile = False
+        else:
+            profile_key = _unique_key(AUTODETECT_PROFILE_NAME, profiles)
+            seed_profile = True
+
+        return {
+            "seed_profile": seed_profile,
+            "profile_key": profile_key,
+            "groups": groups,
+        }
+
+    @staticmethod
+    def _format_proposal(proposal: dict[str, Any]) -> str:
+        """Render a read-only summary of what auto-detection will create."""
+        lines: list[str] = []
+        for group in proposal["groups"]:
+            suffix = " ↩" if group["existing_key"] is not None else ""
+            lines.append(f"🏢 {group['floor_name']}{suffix}")
+            for area in group["areas"]:
+                flag = " ⚠️" if area["ambiguous"] else ""
+                lines.append(f"   • {area['name']} → {area['sensor']}{flag}")
+        return "\n".join(lines)
+
+    def _apply_autodetect(self, proposal: dict[str, Any]) -> None:
+        """Write the proposed profile, floors and areas into the options."""
+        profiles = self.options[CONF_PROFILES]
+        floors = self.options[CONF_FLOORS]
+        profile_key = proposal["profile_key"]
+
+        if proposal["seed_profile"]:
+            profiles[profile_key] = [
+                {CONF_TIME: "00:00", CONF_TEMPERATURE: AUTODETECT_PROFILE_TEMP}
+            ]
+
+        for group in proposal["groups"]:
+            floor_key = group["existing_key"]
+            if floor_key is None:
+                floor_key = _unique_key(group["floor_name"], floors)
+                floors[floor_key] = {
+                    CONF_NAME: group["floor_name"],
+                    CONF_FLOOR: group["floor_id"],
+                    CONF_SCHEDULE: {day: profile_key for day in WEEKDAYS},
+                    CONF_OVERRIDES: [],
+                    CONF_AREAS: {},
+                }
+            areas = floors[floor_key].setdefault(CONF_AREAS, {})
+            for detected in group["areas"]:
+                area_key = detected["area_id"]
+                if area_key in areas:
+                    continue
+                areas[area_key] = {
+                    CONF_NAME: detected["name"],
+                    CONF_AREA: detected["area_id"],
+                    CONF_SENSOR: detected["sensor"],
+                    CONF_HEATERS: [],
+                    CONF_COOLERS: [],
+                    CONF_HYSTERESIS: self.options[CONF_HYSTERESIS],
+                    CONF_AWAY_TEMP: DEFAULT_AWAY_TEMP,
+                    CONF_MIN_TEMP: DEFAULT_MIN_TEMP,
+                    CONF_MAX_TEMP: DEFAULT_MAX_TEMP,
+                }
+
+    async def async_step_autodetect(self, user_input: dict[str, Any] | None = None):
+        """Propose (and, on confirm, create) floors/areas from HA registries."""
+        proposal = self._build_autodetect_proposal()
+
+        if user_input is not None:
+            if proposal["groups"]:
+                self._apply_autodetect(proposal)
+            return await self.async_step_init()
+
+        if not proposal["groups"]:
+            return self.async_show_form(
+                step_id="autodetect",
+                data_schema=vol.Schema({}),
+                errors={"base": "nothing_detected"},
+                description_placeholders={"summary": "—"},
+            )
+
+        return self.async_show_form(
+            step_id="autodetect",
+            data_schema=vol.Schema({}),
+            description_placeholders={"summary": self._format_proposal(proposal)},
+        )
 
     # --- Global settings ------------------------------------------------
 
@@ -239,6 +416,7 @@ class WeeklyThermostatOptionsFlow(OptionsFlow):
         """Edit global settings."""
         if user_input is not None:
             self.options[CONF_HYSTERESIS] = user_input[CONF_HYSTERESIS]
+            self.options[CONF_SHOW_PANEL] = user_input[CONF_SHOW_PANEL]
             return await self.async_step_init()
 
         schema = vol.Schema(
@@ -247,11 +425,16 @@ class WeeklyThermostatOptionsFlow(OptionsFlow):
                     selector.NumberSelectorConfig(
                         min=0.1, max=3, step=0.1, mode=selector.NumberSelectorMode.BOX
                     )
-                )
+                ),
+                vol.Required(CONF_SHOW_PANEL): selector.BooleanSelector(),
             }
         )
         schema = self.add_suggested_values_to_schema(
-            schema, {CONF_HYSTERESIS: self.options[CONF_HYSTERESIS]}
+            schema,
+            {
+                CONF_HYSTERESIS: self.options[CONF_HYSTERESIS],
+                CONF_SHOW_PANEL: self.options[CONF_SHOW_PANEL],
+            },
         )
         return self.async_show_form(step_id="settings", data_schema=schema)
 
@@ -511,6 +694,7 @@ class WeeklyThermostatOptionsFlow(OptionsFlow):
                 CONF_HEATERS: user_input.get(CONF_HEATERS, []),
                 CONF_COOLERS: user_input.get(CONF_COOLERS, []),
                 CONF_HYSTERESIS: user_input.get(CONF_HYSTERESIS, self.options[CONF_HYSTERESIS]),
+                CONF_HYSTERESIS_COOL: user_input.get(CONF_HYSTERESIS_COOL),
                 CONF_AWAY_TEMP: user_input.get(CONF_AWAY_TEMP, DEFAULT_AWAY_TEMP),
                 CONF_MIN_TEMP: user_input.get(CONF_MIN_TEMP, DEFAULT_MIN_TEMP),
                 CONF_MAX_TEMP: user_input.get(CONF_MAX_TEMP, DEFAULT_MAX_TEMP),
@@ -537,6 +721,11 @@ class WeeklyThermostatOptionsFlow(OptionsFlow):
             vol.Optional(CONF_HEATERS): selector.EntitySelector(actuator_config),
             vol.Optional(CONF_COOLERS): selector.EntitySelector(actuator_config),
             vol.Optional(CONF_HYSTERESIS): selector.NumberSelector(
+                selector.NumberSelectorConfig(
+                    min=0.1, max=3, step=0.1, mode=selector.NumberSelectorMode.BOX
+                )
+            ),
+            vol.Optional(CONF_HYSTERESIS_COOL): selector.NumberSelector(
                 selector.NumberSelectorConfig(
                     min=0.1, max=3, step=0.1, mode=selector.NumberSelectorMode.BOX
                 )
@@ -569,6 +758,7 @@ class WeeklyThermostatOptionsFlow(OptionsFlow):
             CONF_HEATERS: area.get(CONF_HEATERS, []),
             CONF_COOLERS: area.get(CONF_COOLERS, []),
             CONF_HYSTERESIS: area.get(CONF_HYSTERESIS, self.options[CONF_HYSTERESIS]),
+            CONF_HYSTERESIS_COOL: area.get(CONF_HYSTERESIS_COOL),
             CONF_AWAY_TEMP: area.get(CONF_AWAY_TEMP, DEFAULT_AWAY_TEMP),
             CONF_MIN_TEMP: area.get(CONF_MIN_TEMP, DEFAULT_MIN_TEMP),
             CONF_MAX_TEMP: area.get(CONF_MAX_TEMP, DEFAULT_MAX_TEMP),

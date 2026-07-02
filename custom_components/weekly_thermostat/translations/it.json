@@ -16,6 +16,7 @@
       "init": {
         "title": "Termostato settimanale",
         "menu_options": {
+          "autodetect": "Rileva automaticamente le aree",
           "settings": "Impostazioni generali",
           "profiles": "Profili giornalieri",
           "floors": "Floor e programma settimanale",
@@ -23,10 +24,15 @@
           "finish": "Salva e chiudi"
         }
       },
+      "autodetect": {
+        "title": "Rileva automaticamente le aree",
+        "description": "Qui sotto sono elencate le aree di Home Assistant che contengono un sensore di temperatura. Conferma per creare un profilo giornaliero predefinito (se non ne esiste ancora uno), i floor (dai floor di Home Assistant) e un'area per ogni stanza rilevata.\n\nLe aree già configurate non vengono toccate. Gli attuatori di riscaldamento/raffrescamento non vengono mai indovinati: aggiungili dopo. ↩ indica un floor già esistente; ⚠️ indica una stanza con più di un sensore di temperatura, quindi verifica quale è stato scelto.\n\n{summary}"
+      },
       "settings": {
         "title": "Impostazioni generali",
         "data": {
-          "hysteresis": "Isteresi predefinita (°C)"
+          "hysteresis": "Isteresi predefinita (°C)",
+          "show_panel": "Mostra il pannello della programmazione nel menu laterale"
         }
       },
       "profiles": {
@@ -97,7 +103,8 @@
           "sensor": "Sensore di temperatura",
           "heaters": "Attuatori riscaldamento",
           "coolers": "Attuatori raffrescamento",
-          "hysteresis": "Isteresi (°C)",
+          "hysteresis": "Isteresi riscaldamento (°C)",
+          "hysteresis_cool": "Isteresi raffrescamento (°C, opzionale — usa quella del riscaldamento)",
           "away_temperature": "Temperatura assenza (°C)",
           "min_temperature": "Temperatura minima (°C)",
           "max_temperature": "Temperatura massima (°C)",
@@ -110,7 +117,8 @@
       "invalid_overrides": "Override non validi. Usa \"AAAA-MM-GG AAAA-MM-GG profilo\" su ogni riga, riferendoti a un profilo esistente.",
       "no_profiles": "Crea almeno un profilo giornaliero prima di aggiungere un floor.",
       "no_floors": "Crea almeno un floor prima di aggiungere le aree.",
-      "area_exists": "Quest'area è già configurata su questo floor."
+      "area_exists": "Quest'area è già configurata su questo floor.",
+      "nothing_detected": "Nessuna nuova area con un sensore di temperatura trovata."
     }
   },
   "entity": {

@@ -72,7 +72,10 @@ Copy `custom_components/weekly_thermostat/` into your Home Assistant
 1. **Settings → Devices & Services → Add Integration → Weekly Thermostat.**
 2. Open the integration's **Configure** button to manage everything from a
    menu:
-   - **Global settings** — default hysteresis
+   - **Auto-detect areas** — scans your Home Assistant areas for a temperature
+     sensor and proposes a ready-made scaffold (a default profile plus floors
+     and areas grouped by HA floor); actuators are left for you to confirm
+   - **Global settings** — default hysteresis and the sidebar panel toggle
    - **Daily profiles** — add/edit/remove profiles (one `HH:MM temperature`
      slot per line)
    - **Floors & weekly schedule** — assign a profile to each weekday, optionally
@@ -142,7 +145,8 @@ weekly_thermostat:
 | `sensor` | area | yes | Temperature sensor entity |
 | `heaters` | area | no `[]` | Actuators used for heating |
 | `coolers` | area | no `[]` | Actuators used for cooling |
-| `hysteresis` | area | no | Overrides the global hysteresis |
+| `hysteresis` | area | no | Overrides the global hysteresis (used for heating) |
+| `hysteresis_cool` | area | no | Separate hysteresis for cooling (falls back to `hysteresis`) |
 | `away_temperature` | area | no (16) | Target for the `away` preset |
 | `min_temperature` / `max_temperature` | area | no | UI setpoint limits |
 
@@ -151,7 +155,9 @@ Notes:
 - The first slot of every profile must start at `00:00`.
 - `heaters` enables the `heat` mode; `coolers` enables the `cool` mode.
 - In `cool` mode the profile temperature is the cooling setpoint (the
-  hysteresis logic is inverted automatically).
+  hysteresis logic is inverted automatically). Set `hysteresis_cool` when the
+  cooling system needs a different dead-band than heating; if omitted it reuses
+  `hysteresis`.
 
 ## Entities
 
@@ -159,7 +165,16 @@ For each area you get a `climate` entity named `<Floor> <Area>` (e.g.
 `climate.ground_floor_living_room`), placed in its Home Assistant area, with
 extra attributes:
 
-- `hysteresis`, `active_profile`, `scheduled_temperature`, `heaters`, `coolers`
+- `hysteresis`, `hysteresis_cool`, `active_profile`, `scheduled_temperature`,
+  `heaters`, `coolers`
+
+## Sidebar panel
+
+An optional **Weekly Thermostat** panel is added to the sidebar (enabled by
+default; toggle it under **Global settings**). It complements the native
+`climate` cards by showing what they can't: the whole weekly schedule at a
+glance — daily profiles as 24h colour bars, the profile assigned to each
+weekday per floor (today highlighted), and a live tile per area.
 
 ## Localization
 

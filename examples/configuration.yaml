@@ -87,3 +87,8 @@ weekly_thermostat:
             - switch.open_space_radiator_2
           coolers:
             - switch.open_space_ac
+          # Optional: a wider dead-band for heating (slow radiators) and a
+          # tighter one for the fast-reacting AC. If omitted, cooling reuses
+          # `hysteresis`.
+          hysteresis: 0.4
+          hysteresis_cool: 0.2

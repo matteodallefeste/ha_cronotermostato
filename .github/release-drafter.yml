@@ -1,0 +1,30 @@
+# Drafts release notes from merged pull requests, grouped by label.
+#
+# This project uses calendar versioning (YY.M.patch), which release-drafter
+# cannot resolve automatically, so the draft's tag/title are placeholders:
+# set the real tag (e.g. 26.7.4) when you publish the release, and make sure it
+# matches the `version` in manifest.json and the CHANGELOG.md entry.
+tag-template: "YY.M.patch"
+name-template: "YY.M.patch"
+categories:
+  - title: "Added"
+    labels: ["feature", "enhancement", "added"]
+  - title: "Changed"
+    labels: ["change", "changed", "refactor"]
+  - title: "Fixed"
+    labels: ["fix", "bug", "bugfix"]
+  - title: "Removed"
+    labels: ["removed", "deprecation"]
+  - title: "Documentation"
+    labels: ["documentation", "docs"]
+change-template: "- $TITLE (#$NUMBER) @$AUTHOR"
+change-title-escapes: '\<*_&'
+category-template: "### $TITLE"
+exclude-labels:
+  - "skip-changelog"
+template: |
+  ## Changes
+
+  $CHANGES
+
+  **Full changelog:** https://github.com/matteodallefeste/ha_cronotermostato/blob/main/CHANGELOG.md
