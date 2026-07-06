@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Matteo Dalle Feste
+
 """Admin-only websocket write API backing the panel's editor.
 
 The panel is a thin UI: it sends intents (save/delete a profile, floor, area or

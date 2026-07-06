@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Matteo Dalle Feste
+
 """Climate platform for the Weekly Thermostat integration.
 
 Each area is exposed as a ``climate`` entity. The target temperature follows

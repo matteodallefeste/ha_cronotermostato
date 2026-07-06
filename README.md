@@ -1,5 +1,7 @@
 # Weekly Thermostat
 
+**English** · [Italiano](README.it.md)
+
 A weekly, multi-floor programmable thermostat (chronothermostat) for
 [Home Assistant](https://www.home-assistant.io/), installable via
 [HACS](https://hacs.xyz/).
@@ -183,15 +185,11 @@ The UI is available in English and Italian (`translations/en.json`,
 
 ## License
 
-Source-available under the **PolyForm Noncommercial License 1.0.0** with
-additional terms — see [`LICENSE`](LICENSE).
+Licensed under the **GNU General Public License v3.0** — see [`LICENSE`](LICENSE).
 
 In short:
 
-- **Free** for any noncommercial / non-professional use.
-- Copies and derivative works may be redistributed **only as part of an
-  open-source project** (OSI-approved license, full source public).
-- All rights remain the exclusive property of Matteo Dalle Feste, who may
-  change the license of future versions or close the software at any time.
-- **Commercial or professional use requires a separate written agreement** —
-  contact matteo@dallefeste.com.
+- **Free** to use, study, share, and modify.
+- Any distributed copy or derivative work must remain **open source under the
+  GPL-3.0** and include the full corresponding source.
+- Provided **without warranty** of any kind.

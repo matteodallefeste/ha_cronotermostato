@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Matteo Dalle Feste
+
 """Sidebar panel registration and websocket API for Weekly Thermostat.
 
 The optional custom panel shows the whole weekly schedule at a glance (daily

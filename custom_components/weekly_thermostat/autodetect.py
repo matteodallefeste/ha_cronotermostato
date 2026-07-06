@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Matteo Dalle Feste
+
 """Shared auto-detection logic.
 
 Scans Home Assistant areas for temperature sensors and builds a ready-made

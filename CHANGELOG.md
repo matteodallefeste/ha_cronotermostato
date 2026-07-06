@@ -10,6 +10,14 @@ changelog to users.
 
 ## [Unreleased]
 
+### Fixed
+- **Integration icon/logo now shows up without waiting on home-assistant/brands.**
+  The brand images are bundled locally in
+  `custom_components/weekly_thermostat/brand/` (`icon`, `logo`, and their `@2x`
+  variants). On Home Assistant 2026.3+ these local images take priority over
+  the brands CDN, so the "icon not available" placeholder is gone. See the
+  [brands proxy API announcement](https://developers.home-assistant.io/blog/2026/02/24/brands-proxy-api/).
+
 ## [26.7.3.1] - 2026-07-02
 
 ### Added

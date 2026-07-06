@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Matteo Dalle Feste
+
 """Config and options flow for the Weekly Thermostat integration.
 
 The initial config flow creates a single entry. All the real configuration

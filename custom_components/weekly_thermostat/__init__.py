@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Matteo Dalle Feste
+
 """The Weekly Thermostat integration.
 
 A weekly, multi-floor programmable thermostat (chronothermostat). Reusable

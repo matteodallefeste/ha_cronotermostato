@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Matteo Dalle Feste
+
 """Pure helpers for validating and (de)serialising schedule configuration.
 
 Shared by the options flow and the panel's write API so both enforce identical
